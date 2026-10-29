@@ -1,0 +1,208 @@
+BÁO CÁO SỬA LỖI KIỂM TOÁN MỤC TIÊU GIAI ĐOẠN 3 (STAGE 3 — TARGETED QA REWORK)Dự án: Hệ thống Chỉ báo Quan sát & Nhận diện Setup Sonic R. + RSI Trend Pulse (XAUUSD)Nền tảng đích: Exness Terminal Web / TakeProfit Indie v5 ($\le 128$ dòng vật lý / script)Phạm vi bất biến: Chỉ báo hỗ trợ quan sát cấu trúc giá, vùng động lượng đa khung (H4 -> H1 -> M15 -> M5) và đánh dấu điểm setup tiềm năng bằng tam giác siêu nhỏ (▲/▼). Không triển khai quản lý lệnh, SL/TP hoặc giao dịch tự động.   1. BẢNG KIỂM TOÁN CHI TIẾT THEO 6 TIÊU CHÍ BẮT BUỘC (YÊU CẦU 1, 3, 4, 5)Phát hiện #1: Đính chính Chữ ký @plot.line vs. @plot.marker (Yêu cầu 1)Vị trí cụ thể trong mã:Script 1: Dòng 21–31 (khối khai báo @plot.line và @plot.marker).Script 2: Dòng 21–27 (khối khai báo @plot.line và @plot.marker).Loại phát hiện: API Mismatch (Đính chính lỗi nhận định ở báo cáo kiểm toán trước).Bằng chứng:Theo tài liệu chính thức package-indie-plot ([https://takeprofit.com/docs/indie/Library-reference/package-indie-plot](https://takeprofit.com/docs/indie/Library-reference/package-indie-plot)), chữ ký của @plot.line có tham số đầu tiên là id (tùy chọn) đứng trước title: @plot.line(id=None, title=None, color=..., line_width=...). Do đó, việc truyền 'dh' làm đối số positional đầu tiên kèm title='...' trong @plot.line('dh', title='...') là hoàn toàn hợp lệ, không gây lỗi trùng title như báo cáo trước đã kết luận sai.Ngược lại, chữ ký của @plot.marker có tham số đầu tiên là title (không có tham số id ở đầu): @plot.marker(title=None, color=..., style=plot.marker_style.LABEL, position=plot.marker_position.BELOW, size=3). Việc truyền ID positional vào @plot.marker mới là nguyên nhân gây trùng đối số title.Các decorator @level(value, line_color=..., title=...), @band(value1, value2, fill_color=..., line_color=..., title=...) và đối tượng trả về plot.Marker(value, text=..., offset=-1) khớp với tài liệu chính thức.Cách sửa:Khôi phục định danh id tường minh cho toàn bộ @plot.line('dh', title=...) ở cả 2 script.Giữ nguyên chữ ký chuẩn không có id cho @plot.marker(title=..., style=plot.marker_style.LABEL, position=plot.marker_position.BELOW/ABOVE, size=3) và truyền offset=-1 bên trong plot.Marker(..., offset=-1).Điều kiện nghiệm thu: Đối chiếu tĩnh khớp 100% chữ ký indie.plot hiện hành; khi biên dịch trên Exness Terminal không phát sinh TypeError.Trạng thái sau sửa: STATIC API CHECKED — PASSED (Chờ xác nhận COMPILED ON EXNESS).Phát hiện #2: Vượt giới hạn 128 dòng vật lý ở Script 1 trong bản bàn giao trước (Yêu cầu 2)Vị trí cụ thể trong mã: Toàn bộ khối mã Script 1 (Dòng 1–120 trong bản sửa mới; bản trước thực tế có 131 dòng vật lý).Loại phát hiện: Logic Defect (Vi phạm ràng buộc cứng $\le 128$ dòng vật lý của dự án).Bằng chứng:Đếm trực tiếp từng dòng vật lý của bản bàn giao trước (gồm header và 2 dòng trống): Script 1 có 131 dòng vật lý (129 dòng không trống) — vượt quá giới hạn 128 dòng mất 3 dòng; Script 2 có 99 dòng vật lý (97 dòng không trống).Cách sửa:Không cắt bỏ bất kỳ logic Sonic R., MTF hay Phân kỳ cốt lõi nào.Gộp các câu lệnh gán điều kiện đơn giản trên 2 dòng (if ...: var = val) thành biểu thức điều kiện 1 dòng (var = val if ... else var) tại các dòng 58–59, 68–69, 75, 85, 92, 102 của Script 1 và loại bỏ dòng trống thừa.Kết quả đếm lại chính xác từng dòng sau sửa:Script 1 (SonicR_Setup_Overlay): 120 dòng vật lý / 120 dòng không trống (dưới trần 128 dòng đúng 8 dòng).Script 2 (RSI_Trend_Pulse_Pane): 83 dòng vật lý / 83 dòng không trống (dưới trần 128 dòng đúng 45 dòng).Điều kiện nghiệm thu: Đếm trực tiếp số dòng vật lý của khối mã độc lập đạt $\le 128$ dòng cho cả 2 script.Trạng thái sau sửa: CODE REVIEWED — PASSED.Phát hiện #3: Dùng mức giá đơn lẻ (ph, pl) làm danh tính khóa chống lặp (Yêu cầu 3)Vị trí cụ thể trong mã:Script 1: Dòng 39, 58–59, 117–119 (self.lock_u_bar, self.lock_d_bar, self.lock_ph, self.lock_pl, cyc_u, cyc_d).Script 2: Dòng 35, 49–50, 79–82 (self.latch_up, self.latch_dn, self.lock_u_bar, self.lock_d_bar).Loại phát hiện: Logic Defect (Danh tính Pivot và khóa chu kỳ chưa chặt chẽ).Bằng chứng:Ở bản trước, Script 1 dùng ph != self.done_h (so sánh giá trị float của đỉnh H) để khóa tín hiệu. Cách này có 2 lỗ hổng:Nếu trong cùng một nhịp hồi phức tạp xuất hiện một đỉnh phụ (secondary pivot high) có giá trị ph_sub != self.done_h (nhưng thấp hơn đỉnh đẩy chính ph_sub < self.done_h), điều kiện ph != self.done_h trả về True và có thể mở khóa sớm trong cùng nhịp hồi.Nếu có hai con sóng độc lập ở hai thời điểm khác nhau nhưng tình cờ có cùng mức giá đỉnh (ph == 2650.00), con sóng thứ hai bị khóa sai.Cách sửa & Chứng minh Vòng đời Chu kỳ Setup (Setup Cycle Lifecycle):Định danh mỗi điểm Pivot bằng chỉ số thanh nến tuyệt đối bất biến theo thời gian abs_idx = self.bar_index - k kết hợp biên độ phá vỡ sóng:Vòng đời 4 pha của một Chu kỳ Setup trên Script 1 (Xét chiều Mua):Bắt đầu chu kỳ (Cycle Start): Khi hình thành chuỗi 3 điểm Pivot đã xác nhận theo đúng thứ tự thời gian kl_orig > kh > k_hl >= 2 (tức $t_{L0} < t_H < t_{HL}$), trong đó đỉnh đẩy H tại $t_H = \text{self.bar\_index} - \text{kh}$ nằm sau thời điểm phát tín hiệu gần nhất (self.bar_index - kh > self.lock_u_bar).Xác nhận & Phát tín hiệu (Confirmation & Emission): Khi hội tụ đủ 4 tầng điều kiện tại nến đóng [1], phát 1 tam giác ▲ và chốt ngay self.lock_u_bar = self.bar_index cùng mức đỉnh tham chiếu self.lock_ph = ph.Đóng khóa trong suốt nhịp hồi (Active Lock): Mọi thanh nến tiếp theo nằm trong cùng nhịp hồi đều bị khóa bởi cyc_u.Mở lại khóa cho chu kỳ mới (Cycle Re-arm / Reset): Chỉ mở lại khi: (a) Thị trường tạo một đỉnh sóng đẩy H mới sau thời điểm phát tín hiệu (self.bar_index - kh > self.lock_u_bar) có mức giá ph >= self.lock_ph, HOẶC (b) Cấu trúc xu hướng cũ kết thúc/reset khi giá đóng cửa dưới EMA 89 hoặc mất thiên hướng H4/H1 (self.lock_ph = math.nan tại dòng 58).Kiểm chứng trên 3 Ca kiểm thử bắt buộc:Ca 1 — RSI cắt EMA 9 nhiều lần trong cùng một nhịp hồi: Trong cùng nhịp hồi, đỉnh H vẫn nằm ở thời điểm cũ $\text{self.bar\_index} - \text{kh} \le \text{self.lock\_u\_bar}$ (trên Script 1) và đáy RSI rl2 bị chặn bởi used_l = True (dòng 92) cùng self.latch_up = True (trên Script 2). Kết quả: Chặn 100%.Ca 2 — Tạo một Pivot phụ (Secondary Pivot) trong cùng nhịp hồi:Nếu tạo đáy phụ mới trên Giá hoặc RSI trong cùng nhịp hồi: trên Script 1, đỉnh đẩy H trước nhịp hồi không đổi nên self.bar_index - kh > self.lock_u_bar vẫn là False; trên Script 2, vì RSI M15 và M5 chưa hoàn tất sóng đẩy mới (not (self.r15[1] >= 56.0 and r[1] >= 60.0)), self.latch_up giữ nguyên True.Nếu tạo đỉnh phụ thấp hơn (ph_sub < self.lock_ph) bên trong nhịp hồi phức tạp: điều kiện ph >= self.lock_ph trả về False. Kết quả: Chặn 100%.Ca 3 — Hai Swing độc lập có cùng mức giá (ph == 2650.00 ở 2 sóng khác nhau): Ở con sóng độc lập thứ hai, giá đã tăng trở lại đạt mức ph >= self.lock_ph (2650.00 >= 2650.00 là True) tại một thời điểm mới self.bar_index - kh > self.lock_u_bar (True), hoặc đã qua nhịp reset EMA 89 (self.lock_ph = math.nan). Kết quả: Không bị khóa nhầm.Ghi nhận giới hạn minh bạch (Limitation Disclosure):Do cửa sổ quét tĩnh có độ dài self.d_max + 8 nến M5 (mặc định $24 + 8 = 32$ nến M5 $\approx 2\text{ giờ } 40\text{ phút}$), nếu một cấu trúc sóng L -> H -> HL kéo dài tổng cộng vượt quá self.d_max + 7 nến M5, điểm đáy gốc L (kl_orig) sẽ trôi ra ngoài cửa sổ quét và kl_orig == 0 (từ chối phát tín hiệu thay vì phát sai).Giữa Script 1 và Script 2: Script 2 đánh dấu điểm xác nhận động lượng RSI nên sẽ mở khóa chu kỳ mới khi RSI M15 $\ge 56$ và RSI M5 $\ge 60$, trong khi Script 1 khóa theo đỉnh cấu trúc giá H của Sonic R.   Điều kiện nghiệm thu: Kiểm tra trên biểu đồ thực tế không xuất hiện 2 tam giác trong cùng một nhịp hồi dưới cùng một đỉnh H (Mua) hoặc trên cùng một đáy L (Bán).Trạng thái sau sửa: CODE REVIEWED — PASSED (Chờ kiểm chứng VISUAL QA PASSED).Phát hiện #4: Xác minh Thứ tự Thời gian L–H–HL, Đóng cửa Vượt Dragon, Touch trước Bounce & Đồng nhất Cửa sổ Quét (Yêu cầu 4)Vị trí cụ thể trong mã:Script 1: Dòng 65–116 (for k in range(2, self.d_max + 8):, w_up, w_dn, ev_up, ev_dn).Script 2: Dòng 53–77 (for k in range(2, self.d_max + 8):, 4 loại phân kỳ và 2 loại Double Bottom/Top).Loại phát hiện: Logic Defect (Thiếu điều kiện đóng cửa vượt Dragon ở nhịp đẩy, thiếu chỉ số thời gian tường minh cho cả 3 điểm L, H, HL và lệch cửa sổ quét giữa 2 module).Bằng chứng:Ở bản trước: (1) Nhịp đẩy tại kh chỉ kiểm tra self.high[k] > dh[k] mà chưa kiểm tra nến đẩy có đóng cửa vượt Dragon hay không; (2) Cho phép k_hl == 0 nếu low[1] <= dh[1] khiến điểm HL không phải lúc nào cũng có chỉ số Pivot xác nhận; (3) Script 1 quét range(2, self.d_max + 9) trong khi Script 2 quét range(2, self.d_max + 7).Cách sửa & Chứng minh Toán học:Xác minh 3 chỉ số thời gian Pivot (kl_orig > kh > k_hl >= 2):
+Trong vòng lặp quét ngược k từ 2 đến self.d_max + 7 (tương ứng thời gian thực $t = \text{self.bar\_index} - k$):Khi kh == 0 và k_hl == 0: tìm điểm Confirmed Pivot Low đầu tiên trong nhịp hồi (is_pl tại k >= 2) gán cho p_hl, k_hl = self.low[k], k.Chỉ sau khi đã có k_hl >= 2 (k_hl > 0), mới tìm điểm Confirmed Pivot High của nhịp đẩy tại kh > k_hl thỏa mãn đồng thời biên độ vượt Dragon VÀ giá đóng cửa vượt Dragon:self.high[k] > dh[k] and (self.close[k] > dh[k] or self.close[k + 1] > dh[k + 1]) (dòng 71 cho chiều Mua; tương tự dòng 81 self.low[k] < dl[k] and (self.close[k] < dl[k] or self.close[k + 1] < dl[k + 1]) cho chiều Bán).Chỉ sau khi đã có kh > k_hl, mới tìm điểm Confirmed Pivot Low của đáy gốc L tại kl_orig > kh (dòng 78–79).Kiểm tra bất đẳng thức chỉ số thời gian nghiêm ngặt tại dòng 114:$$\text{kl\_orig} > \text{kh} > \text{k\_hl} \ge 2 \iff t_L < t_H < t_{HL} \le t_{\text{bar}[2]} < t_{\text{trigger}[1]}$$Chứng minh Touch xảy ra nghiêm ngặt trước Bounce trong cùng nhịp hồi:
+Biến k_tch_up chỉ được ghi nhận trong nhánh kh == 0 (tức cho các thanh nến $k \in [2, \text{kh} - 1]$ có $\text{Low}[k] \le D_H[k]$ tại dòng 75). Do điều kiện w_up (dòng 114) bắt buộc 2 <= k_tch_up < kh, còn sự kiện Bounce (ev_up ở dòng 115) xảy ra tại thanh nến vừa đóng k_bounce = 1 (self.close[1] > dh[1] and self.close[1] > self.open[1]), ta luôn có:$$\text{kh} > k_{\text{tch\_up}} \ge 2 > 1 = k_{\text{bounce}} \iff t_H < t_{\text{Touch}} < t_{\text{Bounce}}$$Thống nhất cửa sổ quét Pivot giữa 2 Module:
+Cả Script 1 (dòng 48, 65) và Script 2 (dòng 39, 53) đều dùng chung cửa sổ quét for k in range(2, self.d_max + 8): và cùng điều kiện bảo vệ dữ liệu math.isnan(r[self.d_max + 9]).Tách riêng tường minh 4 loại Phân kỳ và 2 mô hình RSI Double Bottom/Top:
+Dòng 111–112 (Script 1) và dòng 75–76 (Script 2) định nghĩa độc lập từng biến reg_bull, hid_bull, db_bull, reg_bear, hid_bear, dt_bear.   Điều kiện nghiệm thu: Kiểm tra từng biểu thức đảm bảo đúng thứ tự thời gian, đúng chuỗi Low cho đáy và High cho đỉnh.Trạng thái sau sửa: CODE REVIEWED — PASSED.Phát hiện #5: Đồng bộ Dữ liệu MTF tại Ranh giới Đóng/Mở Nến M15, H1, H4 (Yêu cầu 5)Vị trí cụ thể trong mã:Script 1 & Script 2: Dòng 5–9 (HtfPulse trả về r[1], e[1], w[1], w[1] - w[2]) và các dòng đọc self.r4[1], self.r1[1], self.r15[1], self.r15[4].Loại phát hiện: Test Required (Cần kiểm chứng thực nghiệm hành vi ánh xạ thời gian thực của calc_on() trên Exness Terminal).Bằng chứng:Về mặt mã nguồn tĩnh, hàm @sec_context def HtfPulse xuất ra giá trị tại chỉ số [1] (thanh nến HTF đã đóng hoàn tất trên khung 4h, 1h, 15m), và phương thức calc(self) đọc tại chỉ số [1] khớp với thanh nến M5 vừa đóng [1].   Tuy nhiên, tại các mốc ranh giới chuyển giao nến (:00, :15, :30, :45), cách engine của Exness Terminal ánh xạ timestamp giữa nến M5 vừa đóng và nến HTF vừa đóng trong thời gian thực (live tick) so với khi tải lại lịch sử (F5) chỉ có thể được kết luận bằng kiểm thử thực nghiệm trên nền tảng.Cách sửa: Giữ nguyên cấu trúc khóa nến đóng [1] ở cả @sec_context lẫn calc(), đồng thời cung cấp quy trình kiểm thử ranh giới nến ở Mục 4 bên dưới và giữ trạng thái REPAINT TEST PASSED — PENDING.Điều kiện nghiệm thu: Quan sát trực tiếp tại các mốc :00, :15, :30, :45 trên biểu đồ XAUUSD M5 của Exness Terminal và nhấn F5 xác nhận không mất hoặc dịch chuyển tam giác.Trạng thái sau sửa: CODE REVIEWED — PASSED | REPAINT TEST PASSED — PENDING.2. MÃ NGUỒN ĐÃ SỬA VÀ ĐẾM DÒNG CHÍNH XÁC (YÊU CẦU 2)2.1. Script 1: SonicR_Setup_OverlaySố dòng vật lý (Physical lines — gồm cả header, không có dòng trống): 120 dòng ($\le 128$ dòng).Số dòng không trống (Non-empty lines): 120 dòng.Python# indie:lang_version = 5
+import math
+from indie import indicator, param, plot, color, MainContext, sec_context, TimeFrame
+from indie.algorithms import Ema, Rsi, Wma, Atr
+@sec_context
+def HtfPulse(self) -> tuple[float, float, float, float]:
+    r = Rsi.new(self.close, 14)
+    e, w = Ema.new(r, 9), Wma.new(r, 45)
+    return r[1], e[1], w[1], w[1] - w[2]
+@indicator('Sonic R + RSI Pulse Overlay', overlay_main_pane=True)
+@param.bool('strict_htf', default=False, title='Strict H4 & H1 Full Alignment')
+@param.float('min_slp', default=0.05, min=0.0, title='Min H4/H1 WMA45 Slope')
+@param.float('tangle_sp', default=2.5, min=0.5, title='Min H4/H1 3-Line Spread')
+@param.float('w45_tol', default=2.0, min=0.5, title='M15 WMA45 Touch Tolerance')
+@param.int('d_max', default=24, min=6, max=50, title='M5 Pivot Max Lookback')
+@param.float('db_tol', default=3.0, min=0.5, title='M5 Double Bottom/Top Tol')
+@param.float('db_prom', default=4.0, min=1.0, title='M5 Double Bottom/Top Prominence')
+@param.bool('use_e200', default=False, title='Require Price Beyond EMA 200')
+@param.int('trig_mode', default=0, min=0, max=1, title='Sonic Trigger (0=Bounce, 1=Break)')
+@param.float('rnd_step', default=10.0, min=1.0, title='Round Number Step (XAUUSD)')
+@plot.line('dh', title='Dragon High (EMA 34)', color=color.rgba(33, 150, 243, 0.55), line_width=1)
+@plot.line('dc', title='Dragon Close (EMA 34)', color=color.rgba(33, 150, 243, 0.95), line_width=2)
+@plot.line('dl', title='Dragon Low (EMA 34)', color=color.rgba(33, 150, 243, 0.55), line_width=1)
+@plot.line('e89', title='Trend Line (EMA 89)', color=color.rgba(255, 179, 0, 0.95), line_width=2)
+@plot.line('e200', title='Macro EMA 200 (Ref)', color=color.rgba(158, 158, 158, 0.70), line_width=1)
+@plot.line('s_hi', title='Ref Swing High', color=color.rgba(239, 83, 80, 0.50), line_width=1)
+@plot.line('s_lo', title='Ref Swing Low', color=color.rgba(38, 166, 154, 0.50), line_width=1)
+@plot.line('r_hi', title='Upper Round Level', color=color.rgba(189, 189, 189, 0.35), line_width=1)
+@plot.line('r_lo', title='Lower Round Level', color=color.rgba(189, 189, 189, 0.35), line_width=1)
+@plot.marker(title='Potential Bull Setup', color=color.rgb(0, 230, 118), style=plot.marker_style.LABEL, position=plot.marker_position.BELOW, size=3)
+@plot.marker(title='Potential Bear Setup', color=color.rgb(255, 82, 82), style=plot.marker_style.LABEL, position=plot.marker_position.ABOVE, size=3)
+class Main(MainContext):
+    def __init__(self, strict_htf: bool, min_slp: float, tangle_sp: float, w45_tol: float, d_max: int, db_tol: float, db_prom: float, use_e200: bool, trig_mode: int, rnd_step: float):
+        self.strict_htf, self.min_slp, self.tangle_sp, self.w45_tol = strict_htf, min_slp, tangle_sp, w45_tol
+        self.d_max, self.db_tol, self.db_prom, self.use_e200, self.trig_mode, self.rnd_step = d_max, db_tol, db_prom, use_e200, trig_mode, rnd_step
+        self.r4, self.e4, self.w4, self.s4 = self.calc_on(HtfPulse, time_frame=TimeFrame.from_str('4h'))
+        self.r1, self.e1, self.w1, self.s1 = self.calc_on(HtfPulse, time_frame=TimeFrame.from_str('1h'))
+        self.r15, self.e15, self.w15, self.s15 = self.calc_on(HtfPulse, time_frame=TimeFrame.from_str('15m'))
+        self.lock_u_bar, self.lock_d_bar, self.lock_ph, self.lock_pl = -1, -1, math.nan, math.nan
+    def calc(self):
+        dh, dc, dl = Ema.new(self.high, 34), Ema.new(self.close, 34), Ema.new(self.low, 34)
+        e89, e200, atr = Ema.new(self.close, 89), Ema.new(self.close, 200), Atr.new(14)
+        r = Rsi.new(self.close, 14)
+        e9, w45 = Ema.new(r, 9), Wma.new(r, 45)
+        c_lo = math.floor(self.close[0] / self.rnd_step) * self.rnd_step
+        same_step = (c_lo == math.floor(self.close[1] / self.rnd_step) * self.rnd_step)
+        rnd_l, rnd_h = (c_lo if same_step else math.nan), ((c_lo + self.rnd_step) if same_step else math.nan)
+        if math.isnan(self.w4[1]) or math.isnan(self.w1[1]) or math.isnan(self.w15[4]) or math.isnan(e200[1]) or math.isnan(r[self.d_max + 9]):
+            return dh[0], dc[0], dl[0], e89[0], e200[0], math.nan, math.nan, rnd_h, rnd_l, plot.Marker(math.nan, text='▲', offset=-1), plot.Marker(math.nan, text='▼', offset=-1)
+        sp4 = max(self.r4[1], max(self.e4[1], self.w4[1])) - min(self.r4[1], min(self.e4[1], self.w4[1]))
+        sp1 = max(self.r1[1], max(self.e1[1], self.w1[1])) - min(self.r1[1], min(self.e1[1], self.w1[1]))
+        b4_up = self.r4[1] > self.w4[1] and self.e4[1] > self.w4[1] and self.s4[1] >= self.min_slp and sp4 >= self.tangle_sp
+        b4_dn = self.r4[1] < self.w4[1] and self.e4[1] < self.w4[1] and self.s4[1] <= -self.min_slp and sp4 >= self.tangle_sp
+        b1_up = ((self.r1[1] > self.w1[1]) if self.strict_htf else True) and self.e1[1] >= self.w1[1] and self.s1[1] >= self.min_slp and sp1 >= self.tangle_sp
+        b1_dn = ((self.r1[1] < self.w1[1]) if self.strict_htf else True) and self.e1[1] <= self.w1[1] and self.s1[1] <= -self.min_slp and sp1 >= self.tangle_sp
+        m15_up = ((40.0 <= self.r15[1] <= 50.0) or abs(self.r15[1] - self.w15[1]) <= self.w45_tol or (40.0 <= self.r15[4] <= 50.0) or abs(self.r15[4] - self.w15[4]) <= self.w45_tol) and (38.0 <= self.r15[1] < 70.0)
+        m15_dn = ((50.0 <= self.r15[1] <= 60.0) or abs(self.r15[1] - self.w15[1]) <= self.w45_tol or (50.0 <= self.r15[4] <= 60.0) or abs(self.r15[4] - self.w15[4]) <= self.w45_tol) and (30.0 < self.r15[1] <= 62.0)
+        self.lock_ph = math.nan if (self.close[1] < e89[1] or not (b4_up and b1_up)) else self.lock_ph
+        self.lock_pl = math.nan if (self.close[1] > e89[1] or not (b4_dn and b1_dn)) else self.lock_pl
+        ph, kh, pl_orig, kl_orig, p_hl, k_hl, k_tch_up, ref_ph, k_rph = math.nan, 0, math.nan, 0, math.nan, 0, 0, math.nan, 0
+        pl, kl, ph_orig, kh_orig, p_lh, k_lh, k_tch_dn, ref_pl, k_rpl = math.nan, 0, math.nan, 0, math.nan, 0, 0, math.nan, 0
+        pb_lo, inv_up, pb_hi, inv_dn = self.low[1], (self.close[1] < e89[1]), self.high[1], (self.close[1] > e89[1])
+        rl2, pl_2, kl2_r, rl1, pl_1, kl1_r, mid_hi, used_l = math.nan, math.nan, 0, math.nan, math.nan, 0, -1.0, False
+        rh2, ph_2, kh2_r, rh1, ph_1, kh1_r, mid_lo, used_h = math.nan, math.nan, 0, math.nan, math.nan, 0, 101.0, False
+        for k in range(2, self.d_max + 8):
+            is_ph = self.high[k] >= self.high[k - 1] and self.high[k] > self.high[k + 1] and self.high[k] > self.high[k + 2]
+            is_pl = self.low[k] <= self.low[k - 1] and self.low[k] < self.low[k + 1] and self.low[k] < self.low[k + 2]
+            ref_ph, k_rph = (self.high[k], k) if (is_ph and math.isnan(ref_ph)) else (ref_ph, k_rph)
+            ref_pl, k_rpl = (self.low[k], k) if (is_pl and math.isnan(ref_pl)) else (ref_pl, k_rpl)
+            if kh == 0:
+                if k_hl > 0 and is_ph and self.high[k] > dh[k] and (self.close[k] > dh[k] or self.close[k + 1] > dh[k + 1]):
+                    ph, kh = self.high[k], k
+                else:
+                    pb_lo, inv_up = min(pb_lo, self.low[k]), (inv_up or self.close[k] < e89[k])
+                    k_tch_up = k if (self.low[k] <= dh[k]) else k_tch_up
+                    if is_pl and (k_hl == 0 or self.low[k] < p_hl):
+                        p_hl, k_hl = self.low[k], k
+            elif kl_orig == 0 and is_pl:
+                pl_orig, kl_orig = self.low[k], k
+            if kl == 0:
+                if k_lh > 0 and is_pl and self.low[k] < dl[k] and (self.close[k] < dl[k] or self.close[k + 1] < dl[k + 1]):
+                    pl, kl = self.low[k], k
+                else:
+                    pb_hi, inv_dn = max(pb_hi, self.high[k]), (inv_dn or self.close[k] > e89[k])
+                    k_tch_dn = k if (self.high[k] >= dl[k]) else k_tch_dn
+                    if is_ph and (k_lh == 0 or self.high[k] > p_lh):
+                        p_lh, k_lh = self.high[k], k
+            elif kh_orig == 0 and is_ph:
+                ph_orig, kh_orig = self.high[k], k
+            r_pl = r[k] <= r[k - 1] and r[k] < r[k + 1] and r[k] < r[k + 2]
+            if math.isnan(rl2):
+                used_l = True if (r[k] > e9[k] and r[k + 1] <= e9[k + 1]) else used_l
+                if r_pl and k <= 7 and not used_l:
+                    rl2, pl_2, kl2_r = r[k], min(self.low[k], self.low[k + 1]), k
+            elif math.isnan(rl1):
+                if r_pl:
+                    rl1, pl_1, kl1_r = r[k], min(self.low[k], self.low[k + 1]), k
+                else:
+                    mid_hi = max(mid_hi, r[k])
+            r_ph = r[k] >= r[k - 1] and r[k] > r[k + 1] and r[k] > r[k + 2]
+            if math.isnan(rh2):
+                used_h = True if (r[k] < e9[k] and r[k + 1] >= e9[k + 1]) else used_h
+                if r_ph and k <= 7 and not used_h:
+                    rh2, ph_2, kh2_r = r[k], max(self.high[k], self.high[k + 1]), k
+            elif math.isnan(rh1):
+                if r_ph:
+                    rh1, ph_1, kh1_r = r[k], max(self.high[k], self.high[k + 1]), k
+                else:
+                    mid_lo = min(mid_lo, r[k])
+        v_lo, v_hi = (not math.isnan(rl1) and 3 <= (kl1_r - kl2_r) <= self.d_max and r[1] >= rl2), (not math.isnan(rh1) and 3 <= (kh1_r - kh2_r) <= self.d_max and r[1] <= rh2)
+        reg_bull, hid_bull, db_bull = (v_lo and pl_2 < pl_1 and rl2 > rl1), (v_lo and pl_2 > pl_1 and rl2 < rl1), (v_lo and abs(rl2 - rl1) <= self.db_tol and (mid_hi - max(rl2, rl1)) >= self.db_prom)
+        reg_bear, hid_bear, dt_bear = (v_hi and ph_2 > ph_1 and rh2 < rh1), (v_hi and ph_2 < ph_1 and rh2 > rh1), (v_hi and abs(rh2 - rh1) <= self.db_tol and (min(rh2, rh1) - mid_lo) >= self.db_prom)
+        m5_bull, m5_bear = ((reg_bull or hid_bull or db_bull) and r[1] > e9[1] and r[2] <= e9[2]), ((reg_bear or hid_bear or dt_bear) and r[1] < e9[1] and r[2] >= e9[2])
+        w_up, w_dn = ((kl_orig > kh > k_hl >= 2) and (2 <= k_tch_up < kh) and not inv_up and p_hl > pl_orig and pb_lo > pl_orig), ((kh_orig > kl > k_lh >= 2) and (2 <= k_tch_dn < kl) and not inv_dn and p_lh < ph_orig and pb_hi < ph_orig)
+        ev_up = (self.close[1] > dh[1] and self.close[1] > self.open[1] and (self.close[2] <= dh[2] or self.low[1] <= dh[1])) if self.trig_mode == 0 else (self.close[1] > ph and self.close[2] <= ph)
+        ev_dn = (self.close[1] < dl[1] and self.close[1] < self.open[1] and (self.close[2] >= dl[2] or self.high[1] >= dl[1])) if self.trig_mode == 0 else (self.close[1] < pl and self.close[2] >= pl)
+        cyc_u, cyc_d = ((self.bar_index - kh > self.lock_u_bar) and (math.isnan(self.lock_ph) or ph >= self.lock_ph)), ((self.bar_index - kl > self.lock_d_bar) and (math.isnan(self.lock_pl) or pl <= self.lock_pl))
+        fire_up, fire_dn = (b4_up and b1_up and m15_up and cyc_u and dc[1] > e89[1] and dc[1] > dc[2] and (not self.use_e200 or self.close[1] > e200[1]) and w_up and ev_up and m5_bull), (b4_dn and b1_dn and m15_dn and cyc_d and dc[1] < e89[1] and dc[1] < dc[2] and (not self.use_e200 or self.close[1] < e200[1]) and w_dn and ev_dn and m5_bear)
+        self.lock_u_bar, self.lock_ph, self.lock_d_bar, self.lock_pl = (self.bar_index if fire_up else self.lock_u_bar), (ph if fire_up else self.lock_ph), (self.bar_index if fire_dn else self.lock_d_bar), (pl if fire_dn else self.lock_pl)
+        return dh[0], dc[0], dl[0], e89[0], e200[0], (ref_ph if k_rph != 2 else math.nan), (ref_pl if k_rpl != 2 else math.nan), rnd_h, rnd_l, plot.Marker((self.low[1] - atr[1] * 0.25) if fire_up else math.nan, text='▲', offset=-1), plot.Marker((self.high[1] + atr[1] * 0.25) if fire_dn else math.nan, text='▼', offset=-1)
+2.2. Script 2: RSI_Trend_Pulse_PaneSố dòng vật lý (Physical lines — gồm cả header, không có dòng trống): 83 dòng ($\le 128$ dòng).Số dòng không trống (Non-empty lines): 83 dòng.Python# indie:lang_version = 5
+import math
+from indie import indicator, param, plot, color, level, band, MainContext, sec_context, TimeFrame
+from indie.algorithms import Ema, Rsi, Wma
+@sec_context
+def HtfPulse(self) -> tuple[float, float, float, float]:
+    r = Rsi.new(self.close, 14)
+    e, w = Ema.new(r, 9), Wma.new(r, 45)
+    return r[1], e[1], w[1], w[1] - w[2]
+@indicator('RSI Trend Pulse MTF Pane', overlay_main_pane=False)
+@param.bool('strict_htf', default=False, title='Strict H4 & H1 Full Alignment')
+@param.float('min_slp', default=0.05, min=0.0, title='Min H4/H1 WMA45 Slope')
+@param.float('tangle_sp', default=2.5, min=0.5, title='Min H4/H1 3-Line Spread')
+@param.float('w45_tol', default=2.0, min=0.5, title='M15 WMA45 Touch Tolerance')
+@param.int('d_max', default=24, min=6, max=50, title='M5 Pivot Max Lookback')
+@param.float('db_tol', default=3.0, min=0.5, title='M5 Double Bottom/Top Tol')
+@param.float('db_prom', default=4.0, min=1.0, title='M5 Double Bottom/Top Prominence')
+@level(50.0, line_color=color.rgba(158, 158, 158, 0.50), title='Midline 50')
+@band(40.0, 60.0, fill_color=color.rgba(100, 181, 246, 0.08), line_color=color.rgba(100, 181, 246, 0.25), title='Trend Buffer 40-60')
+@band(30.0, 70.0, fill_color=color.rgba(158, 158, 158, 0.04), line_color=color.rgba(158, 158, 158, 0.20), title='Extreme Range 30-70')
+@plot.line('r_ln', title='RSI 14', color=color.rgba(255, 255, 255, 0.95), line_width=1)
+@plot.line('e_ln', title='EMA 9 (on RSI)', color=color.rgba(0, 229, 255, 0.90), line_width=1)
+@plot.line('w_ln', title='WMA 45 (on RSI)', color=color.rgba(255, 179, 0, 0.95), line_width=2)
+@plot.line('c_up', title='HTF Bull + M15 Wait Zone (45)', color=color.rgba(0, 230, 118, 0.65), line_width=2)
+@plot.line('c_dn', title='HTF Bear + M15 Wait Zone (55)', color=color.rgba(255, 82, 82, 0.65), line_width=2)
+@plot.marker(title='M5 Bull Momentum Confirm', color=color.rgb(0, 230, 118), style=plot.marker_style.LABEL, position=plot.marker_position.BELOW, size=3)
+@plot.marker(title='M5 Bear Momentum Confirm', color=color.rgb(255, 82, 82), style=plot.marker_style.LABEL, position=plot.marker_position.ABOVE, size=3)
+class Main(MainContext):
+    def __init__(self, strict_htf: bool, min_slp: float, tangle_sp: float, w45_tol: float, d_max: int, db_tol: float, db_prom: float):
+        self.strict_htf, self.min_slp, self.tangle_sp, self.w45_tol = strict_htf, min_slp, tangle_sp, w45_tol
+        self.d_max, self.db_tol, self.db_prom = d_max, db_tol, db_prom
+        self.r4, self.e4, self.w4, self.s4 = self.calc_on(HtfPulse, time_frame=TimeFrame.from_str('4h'))
+        self.r1, self.e1, self.w1, self.s1 = self.calc_on(HtfPulse, time_frame=TimeFrame.from_str('1h'))
+        self.r15, self.e15, self.w15, self.s15 = self.calc_on(HtfPulse, time_frame=TimeFrame.from_str('15m'))
+        self.latch_up, self.latch_dn, self.lock_u_bar, self.lock_d_bar = False, False, -1, -1
+    def calc(self):
+        r = Rsi.new(self.close, 14)
+        e9, w45 = Ema.new(r, 9), Wma.new(r, 45)
+        if math.isnan(self.w4[1]) or math.isnan(self.w1[1]) or math.isnan(self.w15[4]) or math.isnan(r[self.d_max + 9]):
+            return r[0], e9[0], w45[0], math.nan, math.nan, plot.Marker(math.nan, text='▲', offset=-1), plot.Marker(math.nan, text='▼', offset=-1)
+        sp4 = max(self.r4[1], max(self.e4[1], self.w4[1])) - min(self.r4[1], min(self.e4[1], self.w4[1]))
+        sp1 = max(self.r1[1], max(self.e1[1], self.w1[1])) - min(self.r1[1], min(self.e1[1], self.w1[1]))
+        b4_up = self.r4[1] > self.w4[1] and self.e4[1] > self.w4[1] and self.s4[1] >= self.min_slp and sp4 >= self.tangle_sp
+        b4_dn = self.r4[1] < self.w4[1] and self.e4[1] < self.w4[1] and self.s4[1] <= -self.min_slp and sp4 >= self.tangle_sp
+        b1_up = ((self.r1[1] > self.w1[1]) if self.strict_htf else True) and self.e1[1] >= self.w1[1] and self.s1[1] >= self.min_slp and sp1 >= self.tangle_sp
+        b1_dn = ((self.r1[1] < self.w1[1]) if self.strict_htf else True) and self.e1[1] <= self.w1[1] and self.s1[1] <= -self.min_slp and sp1 >= self.tangle_sp
+        m15_up = ((40.0 <= self.r15[1] <= 50.0) or abs(self.r15[1] - self.w15[1]) <= self.w45_tol or (40.0 <= self.r15[4] <= 50.0) or abs(self.r15[4] - self.w15[4]) <= self.w45_tol) and (38.0 <= self.r15[1] < 70.0)
+        m15_dn = ((50.0 <= self.r15[1] <= 60.0) or abs(self.r15[1] - self.w15[1]) <= self.w45_tol or (50.0 <= self.r15[4] <= 60.0) or abs(self.r15[4] - self.w15[4]) <= self.w45_tol) and (30.0 < self.r15[1] <= 62.0)
+        self.latch_up = False if (not (b4_up and b1_up) or (self.r15[1] >= 56.0 and r[1] >= 60.0) or r[1] < 32.0) else self.latch_up
+        self.latch_dn = False if (not (b4_dn and b1_dn) or (self.r15[1] <= 44.0 and r[1] <= 40.0) or r[1] > 68.0) else self.latch_dn
+        rl2, pl_2, kl2_r, rl1, pl_1, kl1_r, mid_hi, used_l = math.nan, math.nan, 0, math.nan, math.nan, 0, -1.0, False
+        rh2, ph_2, kh2_r, rh1, ph_1, kh1_r, mid_lo, used_h = math.nan, math.nan, 0, math.nan, math.nan, 0, 101.0, False
+        for k in range(2, self.d_max + 8):
+            r_pl = r[k] <= r[k - 1] and r[k] < r[k + 1] and r[k] < r[k + 2]
+            if math.isnan(rl2):
+                used_l = True if (r[k] > e9[k] and r[k + 1] <= e9[k + 1]) else used_l
+                if r_pl and k <= 7 and not used_l:
+                    rl2, pl_2, kl2_r = r[k], min(self.low[k], self.low[k + 1]), k
+            elif math.isnan(rl1):
+                if r_pl:
+                    rl1, pl_1, kl1_r = r[k], min(self.low[k], self.low[k + 1]), k
+                else:
+                    mid_hi = max(mid_hi, r[k])
+            r_ph = r[k] >= r[k - 1] and r[k] > r[k + 1] and r[k] > r[k + 2]
+            if math.isnan(rh2):
+                used_h = True if (r[k] < e9[k] and r[k + 1] >= e9[k + 1]) else used_h
+                if r_ph and k <= 7 and not used_h:
+                    rh2, ph_2, kh2_r = r[k], max(self.high[k], self.high[k + 1]), k
+            elif math.isnan(rh1):
+                if r_ph:
+                    rh1, ph_1, kh1_r = r[k], max(self.high[k], self.high[k + 1]), k
+                else:
+                    mid_lo = min(mid_lo, r[k])
+        v_lo, v_hi = (not math.isnan(rl1) and 3 <= (kl1_r - kl2_r) <= self.d_max and r[1] >= rl2), (not math.isnan(rh1) and 3 <= (kh1_r - kh2_r) <= self.d_max and r[1] <= rh2)
+        reg_bull, hid_bull, db_bull = (v_lo and pl_2 < pl_1 and rl2 > rl1), (v_lo and pl_2 > pl_1 and rl2 < rl1), (v_lo and abs(rl2 - rl1) <= self.db_tol and (mid_hi - max(rl2, rl1)) >= self.db_prom)
+        reg_bear, hid_bear, dt_bear = (v_hi and ph_2 > ph_1 and rh2 < rh1), (v_hi and ph_2 < ph_1 and rh2 > rh1), (v_hi and abs(rh2 - rh1) <= self.db_tol and (min(rh2, rh1) - mid_lo) >= self.db_prom)
+        m5_bull, m5_bear = ((reg_bull or hid_bull or db_bull) and r[1] > e9[1] and r[2] <= e9[2]), ((reg_bear or hid_bear or dt_bear) and r[1] < e9[1] and r[2] >= e9[2])
+        ctx_u, ctx_d = (45.0 if (b4_up and b1_up and m15_up) else math.nan), (55.0 if (b4_dn and b1_dn and m15_dn) else math.nan)
+        fire_u = (not self.latch_up) and (self.bar_index - kl2_r > self.lock_u_bar) and b4_up and b1_up and m15_up and m5_bull
+        fire_d = (not self.latch_dn) and (self.bar_index - kh2_r > self.lock_d_bar) and b4_dn and b1_dn and m15_dn and m5_bear
+        self.latch_up, self.lock_u_bar = (True if fire_u else self.latch_up), (self.bar_index if fire_u else self.lock_u_bar)
+        self.latch_dn, self.lock_d_bar = (True if fire_d else self.latch_dn), (self.bar_index if fire_d else self.lock_d_bar)
+        return r[0], e9[0], w45[0], ctx_u, ctx_d, plot.Marker((r[1] - 3.5) if fire_u else math.nan, text='▲', offset=-1), plot.Marker((r[1] + 3.5) if fire_d else math.nan, text='▼', offset=-1)
+3. BẢNG THAY ĐỔI TỔNG HỢP & TRẠNG THÁI NGHIỆM THU HIỆN TẠIHạng mục Kiểm soátTrước khi sửa (Bản trước)Sau khi sửa (Bản hiện hành)Trạng thái Nghiệm thu1. Chữ ký @plot.line vs @plot.markerBáo cáo sai rằng @plot.line không có id positional.Phân biệt đúng @plot.line(id, title, ...) và @plot.marker(title, ...).STATIC API CHECKED — PASSED2. Số dòng vật lý Script 1131 dòng vật lý (vượt trần 3 dòng).120 dòng vật lý / 120 dòng không trống (dư 8 dòng dưới trần 128).CODE REVIEWED — PASSED3. Số dòng vật lý Script 299 dòng vật lý (97 dòng không trống).83 dòng vật lý / 83 dòng không trống (dư 45 dòng dưới trần 128).CODE REVIEWED — PASSED4. Khóa chống lặp (One-Shot Latch)So sánh giá trị đơn lẻ ph != self.done_h.Định danh bằng self.bar_index - kh > self.lock_u_bar và ph >= self.lock_ph (reset khi gãy EMA 89).CODE REVIEWED — PASSED5. Cấu trúc L–H–HL & Đóng cửa vượt DragonChưa kiểm tra Close > Dragon ở đỉnh H và chưa bắt buộc đủ 3 chỉ số Pivot.Bắt buộc kl_orig > kh > k_hl >= 2, 2 <= k_tch_up < kh và Close > Dragon tại đỉnh đẩy H.CODE REVIEWED — PASSED6. Cửa sổ quét & 6 mẫu hình RSI M5Lệch d_max + 9 vs d_max + 7; gộp biểu thức ở Script 1.Đồng nhất range(2, self.d_max + 8) và tách riêng 4 loại Phân kỳ + 2 loại DB/DT ở cả 2 script.   CODE REVIEWED — PASSED7. Biên dịch thực tế trên ExnessChưa chạy trên Exness Terminal.Cần dán vào trình biên dịch Exness Terminal để xác nhận.COMPILED ON EXNESS — PENDING8. Kiểm thử hiển thị & Tải lại trang (F5)Chưa có ảnh chụp màn hình và test F5.Cần kiểm tra kích thước ▲/▼ (size=3) và ranh giới đóng nến M15/H1/H4.VISUAL QA PASSED — PENDINGREPAINT TEST PASSED — PENDING4. DANH SÁCH CÁC ĐIỂM CÒN LẠI CẦN XÁC MINH THỰC NGHIỆM (REMAINING UNVERIFIED ITEMS)COMPILED ON EXNESS (Chưa xác minh): Cần biên dịch trực tiếp cả 2 khối mã (120 dòng và 83 dòng) trên Exness Terminal Web để xác nhận trình biên dịch chấp nhận toàn bộ cú pháp mà không phát sinh cảnh báo hay lỗi runtime.VISUAL QA PASSED (Chưa xác minh): Cần kiểm tra trên biểu đồ thực tế của XAUUSD M5 xem plot.marker_style.LABEL với size=3 và text='▲'/'▼' có hiển thị kích thước cân đối và đặt đúng tại thanh nến [1] nhờ offset=-1 hay không.REPAINT TEST PASSED (Chưa xác minh): Cần theo dõi qua thời điểm đóng/mở nến M15 (:00, :15, :30, :45), H1 (:00) và H4, sau đó nhấn tải lại trang (F5) để xác nhận self.calc_on(HtfPulse, ...) không làm thay đổi bất kỳ tam giác nào đã xuất hiện.

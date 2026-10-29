@@ -1,0 +1,35 @@
+TPO Session v1.01 - Market Profile / TPO theo phien cho MetaTrader 5
+Tac gia: Le Duc Huy Admin Crowconcept
+Telegram: https://t.me/crowconcept
+
+CAI DAT
+1. MT5 > File > Open Data Folder > MQL5 > Indicators
+2. Copy file "TPO Session.ex5" vao thu muc do
+3. Trong cua so Navigator: chuot phai > Refresh
+4. Keo "TPO Session" vao chart (khuyen nghi XAUUSD, khung M30)
+
+GIO SERVER CUA SAN - TU NHAN
+InpServerClock mac dinh = Tu nhan: indicator tu doc do lech gio server so voi
+GMT nen dung duoc tren moi san, ke ca san doi gio mua he / mua dong.
+  - Server UTC+0 (vd Exness): gio co dinh, khong can chinh gi.
+  - Server UTC+2 mua dong / UTC+3 mua he (XM, IC Markets...): tu doi gio theo My.
+Kiem tra: tab Experts (Toolbox) se in dong "TPO: dong ho server ...".
+Neu dong ho may tinh sai, hoac san doi gio theo lich Chau Au, chon tay:
+  InpServerClock = Co dinh / Doi gio theo My / Doi gio theo Chau Au
+  InpTimeShiftHours = gio Viet Nam tru gio server vao MUA DONG
+  (vd server UTC+2/+3 -> 5).
+
+CHIEU CAO ROW
+Dang dat san cho XAUUSD: InpTickSize = 0.1, InpTicksPerRow = 12 -> 1 row = 1.2 gia.
+Dung cho ma khac thi dat InpTickSize = 0 (lay tu symbol) va chinh InpTicksPerRow,
+hoac dat thang InpRowHeight theo gia.
+
+PHIEN MAC DINH (gio VN, khai bao theo mua dong, tu doi mua he)
+  S1 A   06:00 - 14:59  (mua he 06:00 - 13:59)
+  S2 Au  15:00 - 19:59  (mua he 14:00 - 18:59)
+  S3 My  20:00 - 05:59  (mua he 19:00 - 05:59)
+
+THAY DOI
+v1.01  Tu nhan gio server (san UTC+2/+3 doi gio theo mua).
+       Sua loi mua he: phien Au / My bi lech 1 gio so voi lich tren.
+v1.00  Ban dau.

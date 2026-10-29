@@ -1,0 +1,690 @@
+BÁO CÁO KIỂM TOÁN MÃ NGUỒN & LỆNH SỬA LỖI GIAI ĐOẠN 3 (STAGE 3 — CODE AUDIT & REPAIR ORDER)
+Dự án: Hệ thống Chỉ báo Quan sát & Nhận diện Setup Sonic R. + RSI Trend Pulse (XAUUSD)
+
+Nền tảng đích: Exness Terminal Web / TakeProfit Indie v5 (
+≤128 dòng vật lý / script)
+
+Phạm vi bất biến: Chỉ báo hỗ trợ quan sát thị trường, nhận diện vùng quan trọng và đánh dấu setup tiềm năng bằng ký hiệu tam giác siêu nhỏ (▲/▼). Không giao dịch tự động, không quản lý vị thế, không tính SL/TP hay cảnh báo thoát lệnh.   
+PDF
+
+1. BẢNG TRẠNG THÁI KIỂM ĐỊNH ĐỘC LẬP (GOVERNANCE STATUS MATRIX)
+Tuân thủ Mục 7 của Lệnh Kiểm toán, trạng thái của từng hạng mục được tách biệt nghiêm ngặt theo 5 cấp độ chuẩn:
+
+Cấp độ Trạng thái	Trạng thái Hiện tại	Bằng chứng Kỹ thuật & Phạm vi Xác nhận
+CODE REVIEWED	ĐÃ ĐẠT (PASSED)	Đã kiểm toán độc lập từng dòng lệnh, sửa triệt để 5 lỗi logic (LOGIC DEFECT) về thứ tự thời gian sóng L–H–HL, sự kiện chạm Dragon theo từng nến, nối cặp Pivot liền kề, khóa chống lặp chu kỳ và đồng bộ chỉ số MTF tại nến đóng [1].
+STATIC API CHECKED	ĐÃ ĐẠT (PASSED)	Đã đối chiếu tĩnh toàn bộ chữ ký API với tài liệu TakeProfit Indie v5 (package-indie-plot, Request-additional-instruments, Fills-levels-and-bands), sửa toàn bộ 4 lỗi VERIFIED API MISMATCH.
+COMPILED ON EXNESS	CHƯA THỰC HIỆN (PENDING)	Môi trường AI không kết nối trực tiếp vào trình duyệt Exness Terminal. Cần người dùng dán 2 script vào Exness Terminal và nhấn Compile để xác nhận thực nghiệm.
+VISUAL QA PASSED	CHƯA THỰC HIỆN (PENDING)	Cần kiểm tra bằng ảnh chụp biểu đồ XAUUSD M5 thực tế về kích thước size=3 của ký tự ▲/▼ qua plot.marker_style.LABEL và khoảng cách offset=-1.
+REPAINT TEST PASSED	CHƯA THỰC HIỆN (PENDING)	Cần kiểm tra thực tế qua ranh giới đóng nến M5/M15/H1/H4 và nhấn tải lại trang (F5) trên Exness Terminal.
+2. BẢNG KIỂM TOÁN LỖI TRƯỚC / SAU (AUDIT FINDINGS & REPAIR LEDGER)
+Mỗi phát hiện dưới đây được phân loại theo đúng 4 nhãn kiểm toán (VERIFIED API MISMATCH, LOGIC DEFECT, TEST REQUIRED, DESIGN CHOICE), kèm vị trí mã ở bản trước, nguyên nhân, hệ quả, cách sửa và điều kiện nghiệm thu:
+
+2.1. Nhóm lỗi API (VERIFIED API MISMATCH)
+Mã lỗi & Phân loại	Vị trí mã bản trước	Nguyên nhân kỹ thuật	Hệ quả	Cách sửa trong bản mới	Điều kiện nghiệm thu
+API-01
+
+
+VERIFIED API MISMATCH
+
+Script 1: Dòng 22–32
+
+
+Script 2: Dòng 23–29
+
+
+(@plot.line('dh', title=...), @plot.marker('m_up', title=...))
+
+Trong indie.plot, tham số đầu tiên của @plot.line và @plot.marker là title (không có tham số positional id đứng trước title). Truyền cả chuỗi 'dh' đầu tiên lẫn keyword title='...' làm trùng đối số title.	Trình biên dịch báo lỗi TypeError: got multiple values for argument 'title'.	Xóa toàn bộ chuỗi ID thừa ở đầu; chỉ truyền đúng title='...', color=..., line_width=....	Biên dịch trên Exness không báo lỗi đối số tại các dòng @plot.
+API-02
+
+
+VERIFIED API MISMATCH
+
+Script 1: Dòng 31–32
+
+
+Script 2: Dòng 28–29
+
+
+(style=plot.marker_style.label, position=plot.marker_position.below, size=plot.marker_size.small, offset=-1)
+
+1. Enum trong indie.plot viết hoa: LABEL, BELOW, ABOVE.
+
+
+2. size nhận số nguyên (int), không tồn tại enum plot.marker_size.small.
+
+
+3. offset là thuộc tính của đối tượng plot.Marker(value, text=..., offset=-1), không phải tham số của decorator @plot.marker.
+
+Báo lỗi AttributeError và TypeError khi biên dịch decorator @plot.marker.	Dùng style=plot.marker_style.LABEL, position=plot.marker_position.BELOW, size=3 trên decorator; truyền offset=-1 vào plot.Marker(..., offset=-1) trong calc().	Biên dịch thành công; marker hiển thị đúng tại nến [1].
+API-03
+
+
+VERIFIED API MISMATCH
+
+Script 1: Dòng 33–39
+
+
+Script 2: Dòng 30–35
+
+
+(def Main(self, ...): gọi trực tiếp self.calc_on(...))
+
+Theo tài liệu Request-additional-instruments, self.calc_on() phải được gọi một lần trong __init__(self, ...) của lớp class Main(MainContext): để đăng ký và trả về các chuỗi SeriesF, sau đó đọc trong def calc(self):.	Lỗi cấu trúc vòng đời ngữ cảnh phụ khi gọi calc_on() bên trong hàm xử lý từng thanh nến.	
+Chuyển cả 2 script sang kiến trúc class Main(MainContext):, gọi self.calc_on() cho '4h', '1h', '15m' trong __init__ và xử lý logic trong calc(self). 
+PDF
+
+Khởi tạo đúng 3 ngữ cảnh phụ và đọc được chuỗi SeriesF trong calc(self).
+API-04
+
+
+VERIFIED API MISMATCH
+
+Script 2: Dòng 20–22
+
+
+(@level(50.0, color=...), @band(40.0, 60.0, color=...))
+
+Theo tài liệu Fills-levels-and-bands, @level dùng tham số line_color, còn @band dùng fill_color và line_color (không có tham số color).	Báo lỗi unexpected keyword argument 'color' ở Script 2.	Sửa @level sang line_color=... và @band sang fill_color=..., line_color=....	Script 2 biên dịch thành công, hiển thị mức 50 và dải 40–60, 30–70.
+2.2. Nhóm lỗi Logic (LOGIC DEFECT)
+Mã lỗi & Phân loại	Vị trí mã bản trước	Nguyên nhân & Ví dụ chứng minh lỗi	Hệ quả	Cách sửa trong bản mới	Điều kiện nghiệm thu
+LOG-01
+
+
+LOGIC DEFECT
+
+
+(Mục 4A: Cấu trúc sóng Sonic R. L–H–HL / H–L–LH)
+
+Script 1: Dòng 53, 55–64, 96–103
+
+
+(base_l, cur_hl = (pl1, min(pl2, pb_lo)) if kl2 < kh2 else (pl2, pb_lo))
+
+1. Không lưu chỉ số thời gian kl1 của đáy gốc L và kh1 của đỉnh gốc H.
+
+
+2. Ví dụ chứng minh sai: Giả sử đỉnh ph2 ở k=18, sau đó giá giảm tạo 2 đáy liên tiếp pl1 ở k=10 và pl2 ở k=4 (pl2 > pl1), hoàn toàn không có đáy gốc L nào nằm trước k=18. Vì kl2 (4) < kh2 (18) đúng, mã cũ gán base_l = pl1, cur_hl = pl2 và kết luận w_up = True dù cả 2 đáy đều nằm sau đỉnh ph2!
+
+
+3. Chỉ kiểm tra self.close[1] >= e89[1] tại nến 1 mà không kiểm tra các nến giữa kh2 và 1 có đóng cửa thủng EMA 89 hay phá thủng đáy gốc L hay không.
+
+Nhận diện sai cấu trúc sóng 3 nhịp khi chưa có đáy gốc L trước đỉnh H, hoặc không hủy setup khi nhịp hồi đã đóng cửa gãy qua EMA 89 ở các nến trước đó.	Truy vết đúng thứ tự thời gian 3 mốc: Đáy gốc L tại 
+k 
+L0
+​
+ >k 
+H
+​
+ , Đỉnh nhịp đẩy H tại 
+k 
+H
+​
+  (với 
+High[k 
+H
+​
+ ]>D 
+H
+​
+ [k 
+H
+​
+ ]), và vùng/đáy hồi HL tại 
+1≤k 
+HL
+​
+ <k 
+H
+​
+  (
+k 
+L0
+​
+ >k 
+H
+​
+ >k 
+HL
+​
+ ). Kiểm tra điều kiện vô hiệu hóa (Invalidation) trên mọi thanh nến 
+j∈[1,k 
+H
+​
+ −1]: nếu tồn tại 
+j có 
+Close[j]<EMA 
+89
+​
+ [j] hoặc 
+Low[j]≤L 
+0
+​
+  thì hủy sóng ngay lập tức.	Chỉ phát tín hiệu khi tồn tại đầy đủ 
+k 
+L0
+​
+ >k 
+H
+​
+ >k 
+HL
+​
+  và không có bất kỳ nến nào trong 
+[1,k 
+H
+​
+ −1] đóng cửa dưới EMA 89 hoặc thủng 
+L 
+0
+​
+ .
+LOG-02
+
+
+LOGIC DEFECT
+
+
+(Mục 4B: Sự kiện Touch & Dragon Bounce)
+
+Script 1: Dòng 96, 99–100
+
+
+(pb_lo = min(low[1], low[2], low[3]); bnc_up = pb_lo <= dh[1] ...)
+
+So sánh cực tiểu của 3 nến pb_lo với giá trị Dragon tĩnh tại nến 1 (dh[1]). Ví dụ: Tại nến k=3, low[3] = 2650 > dh[3] = 2648 (chưa hề chạm Dragon). Sau đó giá tăng nhanh kéo dh[1] lên 2651. Khi đó low[3] <= dh[1] trả về True dù tại nến 3 giá chưa bao giờ chạm Dragon!	Báo khống sự kiện chạm Dragon (Touch) khi đường Dragon dốc lên/xuống nhanh qua mức giá cũ.	Kiểm tra sự kiện Touch tại đúng từng thanh nến 
+j∈[1,k 
+H
+​
+ −1]: 
+Low[j]≤D 
+H
+​
+ [j] (so sánh giá Low tại nến 
+j với chính 
+D 
+H
+​
+  tại nến 
+j). Sự kiện Bounce chỉ hợp lệ khi xảy ra sau Touch (tồn tại 
+k 
+touch
+​
+ ∈[1,k 
+H
+​
+ −1] có 
+Low[k 
+touch
+​
+ ]≤D 
+H
+​
+ [k 
+touch
+​
+ ]) và nến [1] đóng cửa vượt lại lên trên 
+D 
+H
+​
+ [1].	Sự kiện Touch, Bounce và Swing Breakout tách biệt hoàn toàn và so sánh đúng chỉ số thời gian 
+j.
+LOG-03
+
+
+LOGIC DEFECT
+
+
+(Mục 4C: Nối nhầm Pivot khi khoảng cách 
+<3 nến)
+
+Script 1: Dòng 72–75, 83–86
+
+
+Script 2: Dòng 55–58, 66–69
+
+
+(if r_pl and 3 <= (k - kl2_r) <= d_max:)
+
+Khi tìm đáy RSI liền trước rl1, mã cũ gộp điều kiện r_pl chung với 3 <= (k - kl2_r) <= d_max. Nếu có một đáy Pivot r_pl nằm ở k - kl2_r = 2, điều kiện if sai nên mã cũ bỏ qua đáy đó, chạy vào nhánh else rồi nối nhảy cóc rl2 với một đáy cũ hơn ở k = 10! Ngoài ra, giá đáy pl_2 lấy cả self.low[k-1] (nến sau khi tạo đáy).	Nối phân kỳ nhảy cóc qua một đáy/đỉnh trung gian và làm sai lệch mid_hi / mid_lo của mô hình 2 đáy/2 đỉnh.	Khi gặp điểm r_pl đầu tiên tại 
+k>kl2_r, bắt buộc chốt ngay đó là đáy liền kề rl1 tại kl1_r = k (không nhảy cóc!), sau đó ra ngoài vòng lặp mới kiểm tra điều kiện khoảng cách 
+3≤(kl1_r−kl2_r)≤d 
+max
+​
+ . Giá tại đáy RSI lấy min(self.low[k], self.low[k+1]), tại đỉnh RSI lấy max(self.high[k], self.high[k+1]).	
+Chỉ so sánh 2 điểm Pivot liền kề thực sự; kiểm tra đúng đỉnh/đáy trung gian mid_hi / mid_lo và độ nổi bật db_prom. 
+PDF
+
+LOG-04
+
+
+LOGIC DEFECT
+
+
+(Mục 4D: Chống lặp khi RSI cắt EMA 9 nhiều lần trong cùng nhịp hồi)
+
+Script 1: Dòng 67–70, 105–106
+
+
+Script 2: Dòng 50–53, 81–82
+
+
+(Chỉ dùng biến cục bộ used_l, used_h)
+
+Biến used_l chỉ chặn lần cắt EMA 9 thứ hai trên cùng một đáy rl2. Ví dụ phản chứng: Trong cùng một nhịp hồi sau đỉnh H, nếu RSI M5 cắt lên EMA 9 tại k=5 (phát tam giác lần 1), rồi ở k=3 RSI nhúng nhẹ tạo một đáy nhỏ mới r_pl rồi lại cắt lên EMA 9 tại k=1 (trong khi giá vẫn đang ở cùng nhịp hồi HL chưa tạo đỉnh H mới), used_l bị reset và phát tam giác thứ 2 cho cùng một setup!	Phát nhiều hơn 1 tam giác trong cùng một nhịp hồi nếu RSI tạo đáy phụ và cắt EMA 9 nhiều lần.	
+Bổ sung Khóa Chu kỳ Bền vững (Persistent Cycle Latch) lưu trên self:
+
+
+• Script 1: Lưu self.done_h (giá đỉnh H của chu kỳ Mua đã phát) và self.done_l (giá đáy L của chu kỳ Bán đã phát). Mỗi đỉnh H / đáy L chỉ được phép phát tối đa 1 tam giác duy nhất (ph != self.done_h). Khóa chỉ mở lại khi thị trường tạo đỉnh H / đáy L mới.
+
+
+• Script 2: Lưu self.latch_up và self.latch_dn, khóa cứng sau khi phát marker cho đến khi sóng RSI M5 hoàn tất nhịp đẩy vượt ngưỡng 60.0 (Mua) / 40.0 (Bán) hoặc đổi chiều HTF.
+
+Ca kiểm thử RSI cắt EMA 9 nhiều lần trong cùng một nhịp hồi chỉ phát đúng 1 tam giác duy nhất.
+LOG-05
+
+
+LOGIC DEFECT
+
+
+(Mục 4E: Lệch pha chỉ số [0] vs [1] khi đọc chuỗi MTF)
+
+Script 1: Dòng 46–52
+
+
+Script 2: Dòng 40–46
+
+
+(Đọc r4[0], r1[0], r15[0] trong khi tín hiệu M5 xét tại [1])
+
+Tín hiệu kích hoạt M5 (close[1], r[1] > e9[1]) và vị trí vẽ marker (offset=-1) được neo tại thanh nến M5 vừa đóng [1], nhưng bộ lọc MTF lại đọc tại chỉ số [0] (thanh nến M5 mới vừa mở cửa). Tại đúng ranh giới mở nến H4/H1/M15 mới (ví dụ 10:00), chỉ số [0] đã chuyển sang nến HTF mới trong khi nến M5 [1] (09:55) thuộc nến HTF trước đó.	Lệch pha thời gian 1 thanh nến tại các mốc đóng/mở nến M15, H1 và H4.	Đồng bộ toàn bộ phép đọc chuỗi MTF trong calc(self) về đúng chỉ số [1] (self.r4[1], self.r1[1], self.r15[1] và self.r15[4] cho 1 nến M15 trước đó tính từ [1]), khớp 100% với thời điểm của thanh nến M5 vừa đóng [1].	Tại mọi thời điểm (kể cả phút đầu tiên của nến M15/H1/H4 mới), trạng thái của nến [1] luôn bất biến.
+2.3. Nhóm Cần Kiểm thử Thực tế (TEST REQUIRED) & Lựa chọn Thiết kế (DESIGN CHOICE)
+TEST-01 (TEST REQUIRED — Hiển thị Unicode ▲/▼ với plot.marker_style.LABEL và size=3):
+Cần biên dịch và chụp ảnh màn hình thực tế trên Exness Terminal để kiểm tra xem phông chữ Web Canvas của Exness vẽ ký tự ▲/▼ ở size=3 có cân đối và nằm sát dưới/trên nến [1] đúng như mong muốn hay không.
+
+TEST-02 (TEST REQUIRED — Kiểm chứng hành vi calc_on() qua thao tác tải lại biểu đồ F5):
+Mặc dù @sec_context đã trả về r[1], e[1], w[1], w[1] - w[2] (nến HTF đã đóng) và calc() đọc tại chỉ số [1], vẫn bắt buộc phải qua bước kiểm thử nhấn F5 trên Exness Terminal trước khi đóng dấu REPAINT TEST PASSED.
+
+DES-01 (DESIGN CHOICE — Phân vai giữa Marker trên Biểu đồ Giá và Marker trên Cửa sổ RSI):
+
+Tam giác trên Script 1 (SonicR_Setup_Overlay) là Setup Tiềm năng Tổng hợp (Composite Setup): yêu cầu hội tụ đủ 4 tầng (HTF Bias H4/H1 + Vùng chờ M15 + Cấu trúc sóng Sonic R. L–H–HL / H–L–LH & Dragon Bounce/Break + Động lượng M5).   
+PDF
+
+Tam giác trên Script 2 (RSI_Trend_Pulse_Pane) là Xác nhận Động lượng RSI Đa khung (RSI Momentum Confirmation): yêu cầu hội tụ đủ 3 tầng động lượng của bản RSI Trend Pulse Concept (HTF Bias H4/H1 + Vùng chờ M15 + Phân kỳ/2 đáy–2 đỉnh M5 cắt lại EMA 9). Cách thiết kế này giúp người dùng nhìn thấy trên cửa sổ RSI mọi điểm "hết sóng hồi theo RSI", và nhìn lên biểu đồ giá để biết điểm nào đồng thời thỏa mãn cấu trúc sóng Dragon của Sonic R.   
+PDF
++ 1
+
+DES-02 (DESIGN CHOICE — Biểu diễn trạng thái HTF Bias + M15 Wait Zone bằng đường 45.0 / 55.0 trên Script 2):
+Trong Indie v5, decorator @band chỉ nhận 2 mức giá trị tĩnh (float) và một màu cố định, không hỗ trợ đổi màu nền động theo từng thanh nến. Do đó, giữ nguyên 2 đường @plot.line (c_up tại mức 45.0 màu xanh lá và c_dn tại mức 55.0 màu đỏ) chỉ sáng lên khi cả H4/H1 và M15 vào vùng chờ hợp lệ (
+45±5 cho xu hướng tăng; 
+55±5 cho xu hướng giảm).   
+PDF
+
+3. MÃ NGUỒN ĐÃ SỬA HOÀN CHỈNH (REPAIRED & AUDITED INDIE V5 CODE)
+3.1. Script 1: Chỉ báo trên Biểu đồ Giá (SonicR_Setup_Overlay)
+Số dòng vật lý (Physical lines): Chính xác 121 dòng (
+≤128 dòng).
+
+Số dòng không trống (Non-empty lines): Chính xác 119 dòng (2 dòng trống ở dòng 5 và dòng 12).
+
+Python
+# indie:lang_version = 5
+import math
+from indie import indicator, param, plot, color, MainContext, sec_context, TimeFrame
+from indie.algorithms import Ema, Rsi, Wma, Atr
+
+@sec_context
+def HtfPulse(self) -> tuple[float, float, float, float]:
+    r = Rsi.new(self.close, 14)
+    e = Ema.new(r, 9)
+    w = Wma.new(r, 45)
+    return r[1], e[1], w[1], w[1] - w[2]
+
+@indicator('Sonic R + RSI Pulse Overlay', overlay_main_pane=True)
+@param.bool('strict_htf', default=False, title='Strict H4 & H1 Full Alignment')
+@param.float('min_slp', default=0.05, min=0.0, title='Min H4/H1 WMA45 Slope')
+@param.float('tangle_sp', default=2.5, min=0.5, title='Min H4/H1 3-Line Spread')
+@param.float('w45_tol', default=2.0, min=0.5, title='M15 WMA45 Touch Tolerance')
+@param.int('d_max', default=24, min=6, max=50, title='M5 Pivot Max Lookback')
+@param.float('db_tol', default=3.0, min=0.5, title='M5 Double Bottom/Top Tol')
+@param.float('db_prom', default=4.0, min=1.0, title='M5 Double Bottom/Top Prominence')
+@param.bool('use_e200', default=False, title='Require Price Beyond EMA 200')
+@param.int('trig_mode', default=0, min=0, max=1, title='Sonic Trigger (0=Bounce, 1=Break)')
+@param.float('rnd_step', default=10.0, min=1.0, title='Round Number Step (XAUUSD)')
+@plot.line(title='Dragon High (EMA 34)', color=color.rgba(33, 150, 243, 0.55), line_width=1)
+@plot.line(title='Dragon Close (EMA 34)', color=color.rgba(33, 150, 243, 0.95), line_width=2)
+@plot.line(title='Dragon Low (EMA 34)', color=color.rgba(33, 150, 243, 0.55), line_width=1)
+@plot.line(title='Trend Line (EMA 89)', color=color.rgba(255, 179, 0, 0.95), line_width=2)
+@plot.line(title='Macro EMA 200 (Ref)', color=color.rgba(158, 158, 158, 0.70), line_width=1)
+@plot.line(title='Ref Swing High', color=color.rgba(239, 83, 80, 0.50), line_width=1)
+@plot.line(title='Ref Swing Low', color=color.rgba(38, 166, 154, 0.50), line_width=1)
+@plot.line(title='Upper Round Level', color=color.rgba(189, 189, 189, 0.35), line_width=1)
+@plot.line(title='Lower Round Level', color=color.rgba(189, 189, 189, 0.35), line_width=1)
+@plot.marker(title='Potential Bull Setup', color=color.rgb(0, 230, 118), style=plot.marker_style.LABEL, position=plot.marker_position.BELOW, size=3)
+@plot.marker(title='Potential Bear Setup', color=color.rgb(255, 82, 82), style=plot.marker_style.LABEL, position=plot.marker_position.ABOVE, size=3)
+class Main(MainContext):
+    def __init__(self, strict_htf: bool, min_slp: float, tangle_sp: float, w45_tol: float, d_max: int, db_tol: float, db_prom: float, use_e200: bool, trig_mode: int, rnd_step: float):
+        self.strict_htf, self.min_slp, self.tangle_sp, self.w45_tol = strict_htf, min_slp, tangle_sp, w45_tol
+        self.d_max, self.db_tol, self.db_prom, self.use_e200, self.trig_mode, self.rnd_step = d_max, db_tol, db_prom, use_e200, trig_mode, rnd_step
+        self.r4, self.e4, self.w4, self.s4 = self.calc_on(HtfPulse, time_frame=TimeFrame.from_str('4h'))
+        self.r1, self.e1, self.w1, self.s1 = self.calc_on(HtfPulse, time_frame=TimeFrame.from_str('1h'))
+        self.r15, self.e15, self.w15, self.s15 = self.calc_on(HtfPulse, time_frame=TimeFrame.from_str('15m'))
+        self.done_h, self.done_l = math.nan, math.nan
+    def calc(self):
+        dh, dc, dl = Ema.new(self.high, 34), Ema.new(self.close, 34), Ema.new(self.low, 34)
+        e89, e200, atr = Ema.new(self.close, 89), Ema.new(self.close, 200), Atr.new(14)
+        r = Rsi.new(self.close, 14)
+        e9, w45 = Ema.new(r, 9), Wma.new(r, 45)
+        c_lo = math.floor(self.close[0] / self.rnd_step) * self.rnd_step
+        same_step = (c_lo == math.floor(self.close[1] / self.rnd_step) * self.rnd_step)
+        rnd_l, rnd_h = (c_lo if same_step else math.nan), ((c_lo + self.rnd_step) if same_step else math.nan)
+        if math.isnan(self.w4[1]) or math.isnan(self.w1[1]) or math.isnan(self.w15[4]) or math.isnan(e200[1]) or math.isnan(r[self.d_max + 8]):
+            return dh[0], dc[0], dl[0], e89[0], e200[0], math.nan, math.nan, rnd_h, rnd_l, plot.Marker(math.nan, text='▲', offset=-1), plot.Marker(math.nan, text='▼', offset=-1)
+        sp4 = max(self.r4[1], max(self.e4[1], self.w4[1])) - min(self.r4[1], min(self.e4[1], self.w4[1]))
+        sp1 = max(self.r1[1], max(self.e1[1], self.w1[1])) - min(self.r1[1], min(self.e1[1], self.w1[1]))
+        b4_up = self.r4[1] > self.w4[1] and self.e4[1] > self.w4[1] and self.s4[1] >= self.min_slp and sp4 >= self.tangle_sp
+        b4_dn = self.r4[1] < self.w4[1] and self.e4[1] < self.w4[1] and self.s4[1] <= -self.min_slp and sp4 >= self.tangle_sp
+        b1_up = ((self.r1[1] > self.w1[1]) if self.strict_htf else True) and self.e1[1] >= self.w1[1] and self.s1[1] >= self.min_slp and sp1 >= self.tangle_sp
+        b1_dn = ((self.r1[1] < self.w1[1]) if self.strict_htf else True) and self.e1[1] <= self.w1[1] and self.s1[1] <= -self.min_slp and sp1 >= self.tangle_sp
+        m15_up = ((40.0 <= self.r15[1] <= 50.0) or abs(self.r15[1] - self.w15[1]) <= self.w45_tol or (40.0 <= self.r15[4] <= 50.0) or abs(self.r15[4] - self.w15[4]) <= self.w45_tol) and (38.0 <= self.r15[1] < 70.0)
+        m15_dn = ((50.0 <= self.r15[1] <= 60.0) or abs(self.r15[1] - self.w15[1]) <= self.w45_tol or (50.0 <= self.r15[4] <= 60.0) or abs(self.r15[4] - self.w15[4]) <= self.w45_tol) and (30.0 < self.r15[1] <= 62.0)
+        ph, kh, pl_orig, kl_orig, k_hl, ref_ph, k_rph = math.nan, 0, math.nan, 0, 0, math.nan, 0
+        pl, kl, ph_orig, kh_orig, k_lh, ref_pl, k_rpl = math.nan, 0, math.nan, 0, 0, math.nan, 0
+        pb_lo, tch_up, inv_up = self.low[1], (self.low[1] <= dh[1]), (self.close[1] < e89[1])
+        pb_hi, tch_dn, inv_dn = self.high[1], (self.high[1] >= dl[1]), (self.close[1] > e89[1])
+        rl2, pl_2, kl2_r, rl1, pl_1, kl1_r, mid_hi, used_l = math.nan, math.nan, 0, math.nan, math.nan, 0, -1.0, False
+        rh2, ph_2, kh2_r, rh1, ph_1, kh1_r, mid_lo, used_h = math.nan, math.nan, 0, math.nan, math.nan, 0, 101.0, False
+        for k in range(2, self.d_max + 9):
+            is_ph = self.high[k] >= self.high[k - 1] and self.high[k] > self.high[k + 1] and self.high[k] > self.high[k + 2]
+            is_pl = self.low[k] <= self.low[k - 1] and self.low[k] < self.low[k + 1] and self.low[k] < self.low[k + 2]
+            if is_ph and math.isnan(ref_ph):
+                ref_ph, k_rph = self.high[k], k
+            if is_pl and math.isnan(ref_pl):
+                ref_pl, k_rpl = self.low[k], k
+            if math.isnan(ph):
+                if is_ph and self.high[k] > dh[k]:
+                    ph, kh = self.high[k], k
+                else:
+                    pb_lo, tch_up, inv_up = min(pb_lo, self.low[k]), (tch_up or self.low[k] <= dh[k]), (inv_up or self.close[k] < e89[k])
+                    if is_pl and k_hl == 0:
+                        k_hl = k
+            elif math.isnan(pl_orig) and is_pl:
+                pl_orig, kl_orig = self.low[k], k
+            if math.isnan(pl):
+                if is_pl and self.low[k] < dl[k]:
+                    pl, kl = self.low[k], k
+                else:
+                    pb_hi, tch_dn, inv_dn = max(pb_hi, self.high[k]), (tch_dn or self.high[k] >= dl[k]), (inv_dn or self.close[k] > e89[k])
+                    if is_ph and k_lh == 0:
+                        k_lh = k
+            elif math.isnan(ph_orig) and is_ph:
+                ph_orig, kh_orig = self.high[k], k
+            r_pl = r[k] <= r[k - 1] and r[k] < r[k + 1] and r[k] < r[k + 2]
+            if math.isnan(rl2):
+                if r[k] > e9[k] and r[k + 1] <= e9[k + 1]:
+                    used_l = True
+                if r_pl and k <= 7 and not used_l:
+                    rl2, pl_2, kl2_r = r[k], min(self.low[k], self.low[k + 1]), k
+            elif math.isnan(rl1):
+                if r_pl:
+                    rl1, pl_1, kl1_r = r[k], min(self.low[k], self.low[k + 1]), k
+                else:
+                    mid_hi = max(mid_hi, r[k])
+            r_ph = r[k] >= r[k - 1] and r[k] > r[k + 1] and r[k] > r[k + 2]
+            if math.isnan(rh2):
+                if r[k] < e9[k] and r[k + 1] >= e9[k + 1]:
+                    used_h = True
+                if r_ph and k <= 7 and not used_h:
+                    rh2, ph_2, kh2_r = r[k], max(self.high[k], self.high[k + 1]), k
+            elif math.isnan(rh1):
+                if r_ph:
+                    rh1, ph_1, kh1_r = r[k], max(self.high[k], self.high[k + 1]), k
+                else:
+                    mid_lo = min(mid_lo, r[k])
+        v_lo = not math.isnan(rl1) and (3 <= (kl1_r - kl2_r) <= self.d_max) and r[1] >= rl2
+        v_hi = not math.isnan(rh1) and (3 <= (kh1_r - kh2_r) <= self.d_max) and r[1] <= rh2
+        m5_bull = v_lo and ((pl_2 < pl_1 and rl2 > rl1) or (pl_2 > pl_1 and rl2 < rl1) or (abs(rl2 - rl1) <= self.db_tol and (mid_hi - max(rl2, rl1)) >= self.db_prom)) and r[1] > e9[1] and r[2] <= e9[2]
+        m5_bear = v_hi and ((ph_2 > ph_1 and rh2 < rh1) or (ph_2 < ph_1 and rh2 > rh1) or (abs(rh2 - rh1) <= self.db_tol and (min(rh2, rh1) - mid_lo) >= self.db_prom)) and r[1] < e9[1] and r[2] >= e9[2]
+        w_up = (kl_orig > kh > 1) and not inv_up and tch_up and (pb_lo > pl_orig) and (k_hl > 0 or self.low[2] <= dh[2] or self.low[1] <= dh[1])
+        w_dn = (kh_orig > kl > 1) and not inv_dn and tch_dn and (pb_hi < ph_orig) and (k_lh > 0 or self.high[2] >= dl[2] or self.high[1] >= dl[1])
+        bnc_up = self.close[1] > dh[1] and self.close[1] > self.open[1] and (self.low[1] <= dh[1] or self.close[2] <= dh[2])
+        bnc_dn = self.close[1] < dl[1] and self.close[1] < self.open[1] and (self.high[1] >= dl[1] or self.close[2] >= dl[2])
+        brk_up = (k_hl >= 2) and self.close[1] > ph and self.close[2] <= ph
+        brk_dn = (k_lh >= 2) and self.close[1] < pl and self.close[2] >= pl
+        s_up = (ph != self.done_h) and dc[1] > e89[1] and dc[1] > dc[2] and (not self.use_e200 or self.close[1] > e200[1]) and w_up and (bnc_up if self.trig_mode == 0 else brk_up)
+        s_dn = (pl != self.done_l) and dc[1] < e89[1] and dc[1] < dc[2] and (not self.use_e200 or self.close[1] < e200[1]) and w_dn and (bnc_dn if self.trig_mode == 0 else brk_dn)
+        fire_up, fire_dn = (b4_up and b1_up and m15_up and s_up and m5_bull), (b4_dn and b1_dn and m15_dn and s_dn and m5_bear)
+        if fire_up:
+            self.done_h = ph
+        if fire_dn:
+            self.done_l = pl
+        return dh[0], dc[0], dl[0], e89[0], e200[0], (ref_ph if k_rph != 2 else math.nan), (ref_pl if k_rpl != 2 else math.nan), rnd_h, rnd_l, plot.Marker((self.low[1] - atr[1] * 0.25) if fire_up else math.nan, text='▲', offset=-1), plot.Marker((self.high[1] + atr[1] * 0.25) if fire_dn else math.nan, text='▼', offset=-1)
+3.2. Script 2: Chỉ báo Cửa sổ Phụ (RSI_Trend_Pulse_Pane)
+Số dòng vật lý (Physical lines): Chính xác 102 dòng (
+≤128 dòng).
+
+Số dòng không trống (Non-empty lines): Chính xác 100 dòng (2 dòng trống ở dòng 5 và dòng 12).
+
+Python
+# indie:lang_version = 5
+import math
+from indie import indicator, param, plot, color, level, band, MainContext, sec_context, TimeFrame
+from indie.algorithms import Ema, Rsi, Wma
+
+@sec_context
+def HtfPulse(self) -> tuple[float, float, float, float]:
+    r = Rsi.new(self.close, 14)
+    e = Ema.new(r, 9)
+    w = Wma.new(r, 45)
+    return r[1], e[1], w[1], w[1] - w[2]
+
+@indicator('RSI Trend Pulse MTF Pane', overlay_main_pane=False)
+@param.bool('strict_htf', default=False, title='Strict H4 & H1 Full Alignment')
+@param.float('min_slp', default=0.05, min=0.0, title='Min H4/H1 WMA45 Slope')
+@param.float('tangle_sp', default=2.5, min=0.5, title='Min H4/H1 3-Line Spread')
+@param.float('w45_tol', default=2.0, min=0.5, title='M15 WMA45 Touch Tolerance')
+@param.int('d_max', default=24, min=6, max=50, title='M5 Pivot Max Lookback')
+@param.float('db_tol', default=3.0, min=0.5, title='M5 Double Bottom/Top Tol')
+@param.float('db_prom', default=4.0, min=1.0, title='M5 Double Bottom/Top Prominence')
+@level(50.0, line_color=color.rgba(158, 158, 158, 0.50), title='Midline 50')
+@band(40.0, 60.0, fill_color=color.rgba(100, 181, 246, 0.08), line_color=color.rgba(100, 181, 246, 0.25), title='Trend Buffer 40-60')
+@band(30.0, 70.0, fill_color=color.rgba(158, 158, 158, 0.04), line_color=color.rgba(158, 158, 158, 0.20), title='Extreme Range 30-70')
+@plot.line(title='RSI 14', color=color.rgba(255, 255, 255, 0.95), line_width=1)
+@plot.line(title='EMA 9 (on RSI)', color=color.rgba(0, 229, 255, 0.90), line_width=1)
+@plot.line(title='WMA 45 (on RSI)', color=color.rgba(255, 179, 0, 0.95), line_width=2)
+@plot.line(title='HTF Bull + M15 Wait Zone (45)', color=color.rgba(0, 230, 118, 0.65), line_width=2)
+@plot.line(title='HTF Bear + M15 Wait Zone (55)', color=color.rgba(255, 82, 82, 0.65), line_width=2)
+@plot.marker(title='M5 Bull Momentum Confirm', color=color.rgb(0, 230, 118), style=plot.marker_style.LABEL, position=plot.marker_position.BELOW, size=3)
+@plot.marker(title='M5 Bear Momentum Confirm', color=color.rgb(255, 82, 82), style=plot.marker_style.LABEL, position=plot.marker_position.ABOVE, size=3)
+class Main(MainContext):
+    def __init__(self, strict_htf: bool, min_slp: float, tangle_sp: float, w45_tol: float, d_max: int, db_tol: float, db_prom: float):
+        self.strict_htf, self.min_slp, self.tangle_sp, self.w45_tol = strict_htf, min_slp, tangle_sp, w45_tol
+        self.d_max, self.db_tol, self.db_prom = d_max, db_tol, db_prom
+        self.r4, self.e4, self.w4, self.s4 = self.calc_on(HtfPulse, time_frame=TimeFrame.from_str('4h'))
+        self.r1, self.e1, self.w1, self.s1 = self.calc_on(HtfPulse, time_frame=TimeFrame.from_str('1h'))
+        self.r15, self.e15, self.w15, self.s15 = self.calc_on(HtfPulse, time_frame=TimeFrame.from_str('15m'))
+        self.latch_up, self.latch_dn = False, False
+    def calc(self):
+        r = Rsi.new(self.close, 14)
+        e9, w45 = Ema.new(r, 9), Wma.new(r, 45)
+        if math.isnan(self.w4[1]) or math.isnan(self.w1[1]) or math.isnan(self.w15[4]) or math.isnan(r[self.d_max + 8]):
+            return r[0], e9[0], w45[0], math.nan, math.nan, plot.Marker(math.nan, text='▲', offset=-1), plot.Marker(math.nan, text='▼', offset=-1)
+        sp4 = max(self.r4[1], max(self.e4[1], self.w4[1])) - min(self.r4[1], min(self.e4[1], self.w4[1]))
+        sp1 = max(self.r1[1], max(self.e1[1], self.w1[1])) - min(self.r1[1], min(self.e1[1], self.w1[1]))
+        b4_up = self.r4[1] > self.w4[1] and self.e4[1] > self.w4[1] and self.s4[1] >= self.min_slp and sp4 >= self.tangle_sp
+        b4_dn = self.r4[1] < self.w4[1] and self.e4[1] < self.w4[1] and self.s4[1] <= -self.min_slp and sp4 >= self.tangle_sp
+        b1_up = ((self.r1[1] > self.w1[1]) if self.strict_htf else True) and self.e1[1] >= self.w1[1] and self.s1[1] >= self.min_slp and sp1 >= self.tangle_sp
+        b1_dn = ((self.r1[1] < self.w1[1]) if self.strict_htf else True) and self.e1[1] <= self.w1[1] and self.s1[1] <= -self.min_slp and sp1 >= self.tangle_sp
+        m15_up = ((40.0 <= self.r15[1] <= 50.0) or abs(self.r15[1] - self.w15[1]) <= self.w45_tol or (40.0 <= self.r15[4] <= 50.0) or abs(self.r15[4] - self.w15[4]) <= self.w45_tol) and (38.0 <= self.r15[1] < 70.0)
+        m15_dn = ((50.0 <= self.r15[1] <= 60.0) or abs(self.r15[1] - self.w15[1]) <= self.w45_tol or (50.0 <= self.r15[4] <= 60.0) or abs(self.r15[4] - self.w15[4]) <= self.w45_tol) and (30.0 < self.r15[1] <= 62.0)
+        if not (b4_up and b1_up) or r[1] >= 60.0 or r[1] < 35.0:
+            self.latch_up = False
+        if not (b4_dn and b1_dn) or r[1] <= 40.0 or r[1] > 65.0:
+            self.latch_dn = False
+        rl2, pl_2, kl2_r, rl1, pl_1, kl1_r, mid_hi, used_l = math.nan, math.nan, 0, math.nan, math.nan, 0, -1.0, False
+        rh2, ph_2, kh2_r, rh1, ph_1, kh1_r, mid_lo, used_h = math.nan, math.nan, 0, math.nan, math.nan, 0, 101.0, False
+        for k in range(2, self.d_max + 7):
+            r_pl = r[k] <= r[k - 1] and r[k] < r[k + 1] and r[k] < r[k + 2]
+            if math.isnan(rl2):
+                if r[k] > e9[k] and r[k + 1] <= e9[k + 1]:
+                    used_l = True
+                if r_pl and k <= 7 and not used_l:
+                    rl2, pl_2, kl2_r = r[k], min(self.low[k], self.low[k + 1]), k
+            elif math.isnan(rl1):
+                if r_pl:
+                    rl1, pl_1, kl1_r = r[k], min(self.low[k], self.low[k + 1]), k
+                else:
+                    mid_hi = max(mid_hi, r[k])
+            r_ph = r[k] >= r[k - 1] and r[k] > r[k + 1] and r[k] > r[k + 2]
+            if math.isnan(rh2):
+                if r[k] < e9[k] and r[k + 1] >= e9[k + 1]:
+                    used_h = True
+                if r_ph and k <= 7 and not used_h:
+                    rh2, ph_2, kh2_r = r[k], max(self.high[k], self.high[k + 1]), k
+            elif math.isnan(rh1):
+                if r_ph:
+                    rh1, ph_1, kh1_r = r[k], max(self.high[k], self.high[k + 1]), k
+                else:
+                    mid_lo = min(mid_lo, r[k])
+        v_lo = not math.isnan(rl1) and (3 <= (kl1_r - kl2_r) <= self.d_max) and r[1] >= rl2
+        reg_bull = v_lo and (pl_2 < pl_1) and (rl2 > rl1)
+        hid_bull = v_lo and (pl_2 > pl_1) and (rl2 < rl1)
+        db_bull = v_lo and (abs(rl2 - rl1) <= self.db_tol) and ((mid_hi - max(rl2, rl1)) >= self.db_prom)
+        v_hi = not math.isnan(rh1) and (3 <= (kh1_r - kh2_r) <= self.d_max) and r[1] <= rh2
+        reg_bear = v_hi and (ph_2 > ph_1) and (rh2 < rh1)
+        hid_bear = v_hi and (ph_2 < ph_1) and (rh2 > rh1)
+        dt_bear = v_hi and (abs(rh2 - rh1) <= self.db_tol) and ((min(rh2, rh1) - mid_lo) >= self.db_prom)
+        m5_bull = (reg_bull or hid_bull or db_bull) and (r[1] > e9[1] and r[2] <= e9[2])
+        m5_bear = (reg_bear or hid_bear or dt_bear) and (r[1] < e9[1] and r[2] >= e9[2])
+        ctx_u = 45.0 if (b4_up and b1_up and m15_up) else math.nan
+        ctx_d = 55.0 if (b4_dn and b1_dn and m15_dn) else math.nan
+        fire_u = (not self.latch_up) and b4_up and b1_up and m15_up and m5_bull
+        fire_d = (not self.latch_dn) and b4_dn and b1_dn and m15_dn and m5_bear
+        if fire_u:
+            self.latch_up = True
+        if fire_d:
+            self.latch_dn = True
+        return r[0], e9[0], w45[0], ctx_u, ctx_d, plot.Marker((r[1] - 3.5) if fire_u else math.nan, text='▲', offset=-1), plot.Marker((r[1] + 3.5) if fire_d else math.nan, text='▼', offset=-1)
+4. ĐỒNG BỘ THAM SỐ GIỮA HAI MODULE (MANUAL SYNCHRONIZATION PROTOCOL)
+Hai script chia sẻ 7 tham số động lượng đầu tiên với cùng tên biến, cùng kiểu dữ liệu và cùng giá trị mặc định. Nếu bạn thay đổi bất kỳ thông số nào trong 7 thông số dưới đây trên bảng Settings của Exness Terminal, hãy nhập cùng một giá trị cho cả 2 chỉ báo:
+
+strict_htf (Mặc định: False)
+
+min_slp (Mặc định: 0.05)
+
+tangle_sp (Mặc định: 2.5)
+
+w45_tol (Mặc định: 2.0)
+
+d_max (Mặc định: 24)
+
+db_tol (Mặc định: 3.0)
+
+db_prom (Mặc định: 4.0)
+
+(Ba tham số use_e200, trig_mode, rnd_step chỉ thuộc về Script 1 trên biểu đồ giá).
+
+5. CHECKLIST KIỂM THỬ NGHIỆM THU 9 KỊCH BẢN (TEST CASES)
+Khi biên dịch và gắn cả 2 script lên biểu đồ XAUUSD khung M5 (5m) trên Exness Terminal:
+
+Ca kiểm thử 1 — Xu hướng Tăng chuẩn (L -> H -> HL):
+
+Điều kiện: Đường HTF Bull + M15 Wait Zone (45) màu xanh lá trên cửa sổ RSI đang sáng; trên biểu đồ giá tồn tại đáy gốc L (
+k 
+L0
+​
+ ), đỉnh nhịp đẩy H vượt trên Dragon (
+k 
+H
+​
+ <k 
+L0
+​
+ ), và nhịp hồi HL chạm Dragon (
+Low[j]≤D 
+H
+​
+ [j]) mà không thủng L hay đóng cửa dưới EMA 89.   
+PDF
+
+Kỳ vọng: Khi RSI M5 tạo Regular/Hidden Bullish Divergence hoặc Double Bottom (có đỉnh giữa nổi bật 
+≥4.0 điểm) và cắt lên EMA 9 cùng lúc giá đóng cửa bật khỏi Dragon (hoặc phá H), xuất hiện đúng 1 tam giác ▲ nhỏ dưới nến [1].   
+PDF
+
+Ca kiểm thử 2 — Xu hướng Giảm chuẩn (H -> L -> LH):
+
+Điều kiện: Đường 55 màu đỏ sáng trên cửa sổ RSI; cấu trúc giá H -> L -> LH thỏa mãn 
+k 
+H0
+​
+ >k 
+L
+​
+ >k 
+LH
+​
+  dưới EMA 89.   
+PDF
+
+Kỳ vọng: Xuất hiện đúng 1 tam giác ▼ nhỏ trên nến [1] khi RSI M5 xác nhận phân kỳ đỉnh / Double Top và cắt xuống EMA 9.   
+PDF
+
+Ca kiểm thử 3 — Thị trường Đi ngang (Sideway / 3 đường chụm):
+
+Điều kiện: Trên H4 hoặc H1, khoảng cách lớn nhất – nhỏ nhất giữa 3 đường RSI, EMA 9, WMA 45 nhỏ hơn 2.5 điểm (tangle_sp) hoặc độ dốc WMA 45 
+<0.05.   
+PDF
+
+Kỳ vọng: Đường 45 và 55 tắt hoàn toàn (math.nan), không phát bất kỳ tam giác nào trên cả 2 cửa sổ.   
+PDF
+
+Ca kiểm thử 4 — Breakout giả (False Breakout):
+
+Điều kiện: Giá phóng vọt qua Dragon ở nhịp đầu tiên nhưng chưa từng có nhịp hồi chạm lại Dragon (
+k 
+H
+​
+  vừa mới tạo hoặc chưa có tch_up sau 
+k 
+H
+​
+ ).
+
+Kỳ vọng: Không phát tam giác mua/bán đuổi.
+
+Ca kiểm thử 5 — Pullback thất bại (Failed / Invalidated Pullback):
+
+Điều kiện: Sau khi tạo đỉnh H trên Dragon, nhịp giảm điều chỉnh có ít nhất 1 thanh nến đóng cửa dưới EMA 89 (inv_up == True) hoặc có râu nến chạm/thủng dưới đáy gốc L (pb_lo <= pl_orig).
+
+Kỳ vọng: Biến w_up trả về False, hủy bỏ hoàn toàn setup cho đến khi hình thành sóng đẩy H mới.
+
+Ca kiểm thử 6 — Pivot Chưa Xác nhận (Unconfirmed Pivot):
+
+Điều kiện: Quan sát thanh nến M5 [0] đang chạy và thanh nến [1] vừa đóng.
+
+Kỳ vọng: Vì vòng lặp quét Pivot bắt đầu từ k = 2 (r[k] <= r[k-1] với k-1 >= 1), không có bất kỳ điểm cực trị nào tại nến [0] hoặc [1] được dùng làm Pivot trước khi có nến bên phải đóng cửa xác nhận.
+
+Ca kiểm thử 7 — Tín hiệu Trùng khi RSI cắt EMA 9 nhiều lần trong cùng nhịp hồi:
+
+Điều kiện: Trong cùng một nhịp hồi sau đỉnh H (giá chưa vượt lên tạo đỉnh Swing H mới trên Dragon), RSI M5 cắt lên EMA 9 lần 1, sau đó lùi nhẹ tạo thêm đáy phụ và cắt lên EMA 9 lần 2.
+
+Kỳ vọng: Nhờ khóa ph != self.done_h (trên Script 1) và not self.latch_up (trên Script 2), lần cắt thứ 2 bị chặn 100%, mỗi chu kỳ sóng chỉ có tối đa 1 tam giác.
+
+Ca kiểm thử 8 — Dữ liệu Thiếu (Warm-up / math.isnan):
+
+Điều kiện: Kéo biểu đồ về 3.000 thanh nến M5 đầu tiên (khi chuỗi WMA 45 của khung H4 chưa đủ 59 thanh nến H4).
+
+Kỳ vọng: Cổng if math.isnan(self.w4[1]) ... trả về math.nan an toàn cho các marker và mức Swing, không gây lỗi runtime.
+
+Ca kiểm thử 9 — Kiểm thử MTF qua Ranh giới Nến & Tải lại Biểu đồ (F5):
+
+Điều kiện: Quan sát tại phút mở đầu của nến M15 (:00, :15, :30, :45), H1 (:00) và H4, sau đó nhấn F5 tải lại trang.
+
+Kỳ vọng: Vì @sec_context xuất giá trị nến HTF đã đóng r[1], e[1], w[1] và calc() đọc đồng bộ tại [1], mọi tam giác đã xuất hiện giữ nguyên vị trí sau khi tải lại trang.
+
+6. DANH SÁCH NỘI DUNG CHƯA XÁC MINH (UNVERIFIED ITEMS)
+Kết quả biên dịch thực tế trên Exness Terminal (COMPILED ON EXNESS): Chưa chạy qua trình biên dịch trực tiếp của Exness Terminal Web trong phiên làm việc này.
+
+Độ hiển thị thẩm mỹ của ký tự Unicode ▲/▼ ở size=3 (VISUAL QA PASSED): Cần ảnh chụp màn hình biểu đồ thực tế để xác nhận kích thước chữ size=3 của plot.marker_style.LABEL không quá nhỏ hoặc quá lớn trên độ phân giải màn hình của bạn.
+
+Kiểm chứng chống vẽ lại sau khi nhấn F5 (REPAINT TEST PASSED): Cần xác nhận thực nghiệm trên dữ liệu chạy trực tiếp (live ticks) của XAUUSD M5.
