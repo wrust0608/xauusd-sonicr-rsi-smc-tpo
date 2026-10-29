@@ -1,8 +1,8 @@
 # PROJECT MEMORY — CANONICAL STATE & SOURCE OF TRUTH
 
 **Project Name:** XAUUSD visual-analysis indicator suite — Sonic R. + RSI Trend Pulse + SMC + TPO  
-**Knowledge Base Version:** 1.2.4  
-**Current Gate Status:** `PENDING` (Submitted for Manager Review)  
+**Knowledge Base Version:** 1.2.5  
+**Current Gate Status:** `PENDING` (Independent Manager Review Required; agent self-score is not manager approval)  
 **Implementation / Code Permission:** `NOT GRANTED` (Strict Phase 0 discipline)  
 **Target Environment Assumption:** Exness Terminal Web / TakeProfit Indie v5  
 **Review Date:** 2026-10-29  

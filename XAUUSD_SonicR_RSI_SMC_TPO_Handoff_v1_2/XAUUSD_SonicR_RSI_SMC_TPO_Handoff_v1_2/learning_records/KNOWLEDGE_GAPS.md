@@ -44,7 +44,7 @@
   Tuy nhiên, Exness Terminal Web là một môi trường nhúng lưu trữ (hosted runtime), chưa có bằng chứng xác nhận Exness đã kích hoạt `BlockProfile` hoặc mở thư viện `indie.data.sources.Tpo()`.
 - **Tác động & Ranh giới kiến trúc:**
   - Nếu Exness không hỗ trợ `BlockProfile` hay `sources.Tpo()`, giải pháp TPO sẽ phải tự tính toán từ nến M5/M30 và vẽ bằng các đối tượng đồ họa cơ bản (`LineSegment`, `plot.line`).
-  - Hơn nữa, native `sources.Tpo()` mặc định gộp cả pre-market, main session và post-market thành một profile ngày, KHÔNG tự động tương thích với lịch 3 phiên tùy biến theo giờ Việt Nam (S1 Á, S2 Âu, S3 Mỹ) và cấu hình row height $1.2$ của indicator gốc `TPO Session v1.01`. Không được tự ý thay thế đặc tả của người dùng bằng native API.
+  - Hơn nữa, native `sources.Tpo()` mặc định gộp các session type được chọn thành một profile theo timeframe được yêu cầu qua `request_series`: ví dụ `TimeFrame.D1` tạo profile ngày, còn các timeframe dài hơn có thể tạo profile tuần hoặc tháng. Cơ chế gom nhóm theo timeframe này KHÔNG tự động tương thích với lịch 3 phiên tùy biến theo giờ Việt Nam (S1 Á, S2 Âu, S3 Mỹ) và cấu hình row height $1.2$ của indicator gốc `TPO Session v1.01`. Không được tự ý thay thế đặc tả của người dùng bằng native API.
 - **Bằng chứng cần thiết để đóng gap:**
   - Chạy smoke test tối thiểu độc lập trên Exness Terminal Web (khi được Quản lý cấp phép) để kiểm tra: (a) `BlockProfile` có vẽ được không; (b) `sources.Tpo()` có gọi được không.
 - **Trạng thái:** `OPEN — Cần smoke test trên Exness (RUNTIME_REQUIRED)`.

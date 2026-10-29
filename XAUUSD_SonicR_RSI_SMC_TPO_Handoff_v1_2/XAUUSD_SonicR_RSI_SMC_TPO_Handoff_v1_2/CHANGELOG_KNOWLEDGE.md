@@ -1,5 +1,13 @@
 # Knowledge-base changelog
 
+## v1.2.5 — 2026-10-29 (Phase 0 GAP-03 Timeframe Grouping Consistency — Release Candidate 5)
+- Corrected the stale wording in `learning_records/KNOWLEDGE_GAPS.md` §GAP-03: `sources.Tpo()` groups the selected session types into a profile according to the requested timeframe (e.g. `TimeFrame.D1` is daily; higher timeframes can yield weekly/monthly profiles), rather than always producing a daily profile.
+- Preserved the limitation that timeframe-based native grouping does not automatically implement the user's custom Vietnamese S1/S2/S3 sessions; Exness hosted-runtime support remains `RUNTIME_REQUIRED`.
+- Synchronized persistent-memory version metadata to `1.2.5` in `learning_records/PROJECT_MEMORY.md` and `learning_records/LEARNING_REPORT.md`; clarified that the learning records remain pending independent manager review and that the reported `100/100` is an agent self-score, not an independent grade.
+- Recomputed byte counts and SHA-256 values for the eight payload files in `MANIFEST_CHECKSUMS.txt`; rebuilt the ZIP with those eight payload files plus the manifest, and verified each entry's path, byte size, CRC-32, and SHA-256 against the generated manifest.
+- Rechecked the 8 locked baseline files against `SHA256SUMS_ALL.txt`: all 8 match. No indicator code or locked baseline file was changed.
+- Learning Gate remains `PENDING`; no audit, compile, smoke test, or runtime test was performed.
+
 ## v1.2.4 — 2026-10-29 (Phase 0 C17 Official Example Alignment & Metadata Synchronization — Release Candidate 4)
 - Aligned Critical Question `C17` in `learning_records/ASSESSMENT_ANSWERS.md` and grading matrix strictly with TakeProfit's official documentation example (`https://takeprofit.com/docs/indie/Profile-data/TPO-profiles`):
   - Removed speculative POC detection alternatives outside the official example (removed `(hoặc đối chiếu row.price == profile.point_of_control)`); documented official scan initializing `poc_index = 0` and scanning `rows` from 1 to `len(rows)-1`, updating strictly on larger TPO counts.

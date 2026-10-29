@@ -1,10 +1,10 @@
 # BÁO CÁO HỌC TẬP VÀ KIỂM CHỨNG TRI THỨC — PHASE 0 (LEARNING REPORT)
 
 **Dự án:** Bộ chỉ báo quan sát thị trường XAUUSD — Sonic R. + RSI Trend Pulse + SMC + TPO  
-**Phiên bản Knowledge Base:** 1.2.4  
+**Phiên bản Knowledge Base:** 1.2.5  
 **Ngày thực hiện:** 2026-10-29  
 **Môi trường đích mặc định:** Exness Terminal Web / TakeProfit Indie v5  
-**Trạng thái cổng học tập (Learning Gate Status):** `PENDING` (Đã hoàn thành nghiên cứu và kiểm chứng, đang chờ Người quản lý phê duyệt)  
+**Trạng thái cổng học tập (Learning Gate Status):** `PENDING` (Agent tự báo cáo hoàn thành; đang chờ Người quản lý chấm độc lập toàn bộ assessment)  
 **Cam kết kỷ luật Phase 0:** TUYỆT ĐỐI KHÔNG TẠO MỚI, CHỈNH SỬA, REFACTOR HOẶC THỬ NGHIỆM CODE CHỈ BÁO NÀO.
 
 ---

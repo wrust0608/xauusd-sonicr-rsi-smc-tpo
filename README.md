@@ -5,7 +5,7 @@
 **Current Gate:** Phase 0 — Learning Gate  
 **Gate Status:** `PENDING` (Submitted for Manager Review)  
 **Code Authority:** `NOT GRANTED` (Strict Phase 0 discipline — Zero indicator code created or modified)  
-**Knowledge Base Version:** v1.2.4 (C17 Official Example Alignment & Metadata Synchronization Complete)  
+**Knowledge Base Version:** v1.2.5 (GAP-03 Timeframe Grouping Consistency; Manager Review Pending)  
 
 ---
 
@@ -15,17 +15,17 @@ Hồ sơ bàn giao và các tài liệu học tập của Phase 0 đã được 
 
 ### 📦 Hồ sơ bàn giao chính thức (Deliverables Bundle)
 - **Tệp nén bàn giao:** [`Phase0_Deliverables_Bundle.zip`](./Phase0_Deliverables_Bundle.zip)  
-  *Kích thước:* `54,801 bytes` | *SHA-256:* `1C2CC5FE9A7C6139127059E3D9677A20B37774A9AE7C1F93CB2C5E778B591EBD`
+  *Kích thước:* `147,079 bytes` | *SHA-256:* `1057F446B1AA9CCC5BB65C79E25ED1350391AAB2F5F159F60580DCE01B10AF68`
 - **Kê khai mã băm bàn giao:** [`MANIFEST_CHECKSUMS.txt`](./XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/MANIFEST_CHECKSUMS.txt)
 
 ### 📑 Bộ hồ sơ lưu trữ bền vững (Persistent Learning Records)
 1. 📋 [**Báo cáo học tập toàn diện (LEARNING_REPORT.md)**](./XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/learning_records/LEARNING_REPORT.md): Tổng hợp 8 chủ đề kiến thức, xác thực nguồn chính thức và cam kết kỷ luật.
-2. 📝 [**Bài đánh giá 35 câu & Ma trận chấm điểm (ASSESSMENT_ANSWERS.md)**](./XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/learning_records/ASSESSMENT_ANSWERS.md): Trả lời chi tiết 17 câu Critical (C1–C17) và 18 câu General (Q17–Q34). C17 được căn chỉnh chặt chẽ theo ví dụ tài liệu chính thức TakeProfit: khởi tạo `poc_index = 0`, quét `rows` từ 1 đến len-1 cập nhật strictly khi TPO lớn hơn (loại bỏ suy đoán đối chiếu giá ngoài tài liệu); quy tắc biên một phía, so sánh hai phía với tie-break chính thức, quy ước biên hình học, và làm rõ cơ chế gom phiên mặc định theo timeframe vs lịch 3 phiên Việt Nam S1/S2/S3. Điểm số chuẩn hóa: **100/100** (52/52 điểm thô, 100% Critical Pass).
+2. 📝 [**Bài đánh giá 35 câu & Ma trận chấm điểm (ASSESSMENT_ANSWERS.md)**](./XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/learning_records/ASSESSMENT_ANSWERS.md): Trả lời chi tiết 17 câu Critical (C1–C17) và 18 câu General (Q17–Q34). C17 được căn chỉnh chặt chẽ theo ví dụ tài liệu chính thức TakeProfit: khởi tạo `poc_index = 0`, quét `rows` từ 1 đến len-1 cập nhật strictly khi TPO lớn hơn (loại bỏ suy đoán đối chiếu giá ngoài tài liệu); quy tắc biên một phía, so sánh hai phía với tie-break chính thức, quy ước biên hình học, và làm rõ cơ chế gom phiên mặc định theo timeframe vs lịch 3 phiên Việt Nam S1/S2/S3. Điểm số **100/100** (52/52 điểm thô) là **tự chấm của agent, chưa được quản lý chấm độc lập**; không phải căn cứ phê duyệt Gate.
 3. 📖 [**Sổ theo dõi khẳng định (CLAIM_LEDGER.md)**](./XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/learning_records/CLAIM_LEDGER.md): Đăng ký và phân loại 24 khẳng định kỹ thuật (CLM-01 đến CLM-24) với nhãn bằng chứng rõ ràng.
 4. 🔍 [**Khoảng trống kiến thức & Source Blockers (KNOWLEDGE_GAPS.md)**](./XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/learning_records/KNOWLEDGE_GAPS.md): 5 blocker P0 (thiếu source SMC/TPO, kiểm thử runtime Exness, feature inventory SMC, grid origin) và 5 gap P1.
 5. 🧠 [**Bộ nhớ dự án chuẩn (PROJECT_MEMORY.md)**](./XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/learning_records/PROJECT_MEMORY.md): Bản ghi nhớ trung tâm về bất biến, ranh giới kiến trúc và trạng thái `PENDING`.
 6. 🚀 [**Quy trình mở phiên (SESSION_START_CHECKLIST.md)**](./XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/learning_records/SESSION_START_CHECKLIST.md): Quy trình 7 bước an toàn bắt buộc trước mỗi phiên làm việc.
-7. 📜 [**Nhật ký tri thức (CHANGELOG_KNOWLEDGE.md)**](./XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/CHANGELOG_KNOWLEDGE.md): Nhật ký cập nhật Knowledge Base v1.2.4 ghi nhận căn chỉnh C17 theo ví dụ chính thức TakeProfit, đồng bộ metadata phiên bản và xuất bản Release Candidate 4.
+7. 📜 [**Nhật ký tri thức (CHANGELOG_KNOWLEDGE.md)**](./XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/CHANGELOG_KNOWLEDGE.md): Nhật ký Knowledge Base v1.2.5 ghi nhận sửa mâu thuẫn GAP-03 về profile theo timeframe; Gate vẫn PENDING chờ quản lý review độc lập.
 
 ### 📚 Tài liệu đặc tả và cơ sở tri thức gốc
 - 🎯 [**Bắt đầu tại đây (00_BAT_DAU_TAI_DAY.md)**](./XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/00_BAT_DAU_TAI_DAY.md)
