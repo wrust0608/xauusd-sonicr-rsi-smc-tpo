@@ -1,5 +1,15 @@
 # Knowledge-base changelog
 
+## v1.2.3 — 2026-10-29 (Phase 0 C17 API Precision & Boundary Clarification — Release Candidate 3)
+- Corrected Critical Question `C17` in `learning_records/ASSESSMENT_ANSWERS.md` and grading matrix against TakeProfit's official documentation (`https://takeprofit.com/docs/indie/Profile-data/TPO-profiles`):
+  - Qualified `TpoProfile` fields: Removed undocumented `point_of_control_index` property; documented that `poc_index` must be found by scanning `rows` for the row with maximum TPO count (`len(row.block_indexes)`), updating strictly on larger counts per documented procedure.
+  - Stated explicit one-sided boundary rules: at each iteration, if only the upper neighbor exists, choose upper; if only the lower neighbor exists, choose lower; if both exist, compare counts; on tie, choose closer to POC; on equal distance tie, choose upper candidate.
+  - Preserved boundary geometry convention: `rows[i].price` is the lower bound; $\text{VAL} = \text{rows}[\text{low\_index}].\text{price}$; geometric upper edge of Value Area is $\text{VAH}_{\text{upper}} = \text{rows}[\text{high\_index}].\text{price} + \text{profile}.\text{row\_size}$.
+- Synchronized `KNOWLEDGE_BASE/05_TPO_MARKET_PROFILE_AND_USER_SPEC.md` §6, `learning_records/CLAIM_LEDGER.md` (`CLM-22`, `CLM-23`), `learning_records/PROJECT_MEMORY.md` §3, and `learning_records/LEARNING_REPORT.md` §B.5 & §D.
+- Recomputed all byte counts and SHA-256 hashes in `MANIFEST_CHECKSUMS.txt`.
+- Rebuilt `Phase0_Deliverables_Bundle.zip` and published GitHub Release `v1.2.3-phase0`.
+- Baseline preservation: All 8 reference/specification files remain 100% hash-identical. Zero indicator code created or modified.
+
 ## v1.2.2 — 2026-10-29 (Phase 0 C17 Algorithmic Correction & Release Candidate 2)
 - Corrected Critical Question `C17` answer in `learning_records/ASSESSMENT_ANSWERS.md` and grading matrix to rigorously reflect TakeProfit's official single-row outward expansion algorithm from POC:
   - Guard condition: verify `len(profile.rows) > 0` before row access.

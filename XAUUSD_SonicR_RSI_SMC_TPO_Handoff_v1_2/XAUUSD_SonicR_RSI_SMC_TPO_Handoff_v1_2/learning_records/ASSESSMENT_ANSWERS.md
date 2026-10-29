@@ -32,7 +32,7 @@
 | **C14** | `CRITICAL` | Chỉ số `[1]` trên chuỗi MTF | **PASS** | `KNOWLEDGE_BASE/07_...` §2–§3; TakeProfit [S16] | Giải thích cặn kẽ: `[1]` trên chuỗi đã nội suy xuống M5 không chứng minh nến HTF đóng; phải lấy từ secondary context và test ranh giới. | 2/2 |
 | **C15** | `CRITICAL` | Hồ sơ bộ nhớ dự án bền vững | **PASS** | `KNOWLEDGE_BASE/12_PERSISTENT_MEMORY_PROTOCOL.md` §1–§3; `00_BAT_DAU_TAI_DAY.md` §4 | Liệt kê đầy đủ 6 file trong `learning_records/` và changelog; khẳng định bộ nhớ lưu bằng file thực tế trên đĩa, không lưu bằng chat. | 2/2 |
 | **C16** | `CRITICAL` | Các hành động bị cấm trước khi duyệt Gate | **PASS** | `KNOWLEDGE_BASE/00_INDEX_AND_LEARNING_GATE.md` §5–§6; `00_BAT_DAU_TAI_DAY.md` §1 | Liệt kê rõ: cấm tạo prototype, cấm sửa code core, cấm đổi spec, cấm port SMC/TPO, cấm tự phong duyệt bản thân. | 2/2 |
-| **C17** | `CRITICAL — ADDENDUM` | `BlockProfile` vs `sources.Tpo()` & VAH/VAL | **PASS** | `KNOWLEDGE_BASE/05_...` §6; `06_...` §3; TakeProfit Docs [S11, S19, S20, S21] | Phân biệt chính xác drawing class vs data source; liệt kê đúng các trường trên `TpoProfile`; mô tả chuẩn xác thuật toán mở rộng 1 hàng kèm quy tắc tie-break (khoảng cách POC, ưu tiên hàng trên); phân biệt lower bound vs upper edge (`row.price + row_size`); xác định ranh giới Exness `RUNTIME_REQUIRED` và xung đột phiên mặc định vs S1/S2/S3. | 2/2 |
+| **C17** | `CRITICAL — ADDENDUM` | `BlockProfile` vs `sources.Tpo()` & VAH/VAL | **PASS** | `KNOWLEDGE_BASE/05_...` §6; `06_...` §3; TakeProfit Docs [S11, S19, S20, S21] | Phân biệt chính xác drawing class vs data source; chỉ rõ `TpoProfile` không có `point_of_control_index` (phải quét `rows`); mô tả chuẩn xác quy tắc biên một phía, so sánh hai phía và tie-break chính thức (khoảng cách POC, ưu tiên phía trên); phân biệt lower bound vs upper edge (`row.price + row_size`); xác định ranh giới Exness `RUNTIME_REQUIRED` và xung đột phiên mặc định vs S1/S2/S3. | 2/2 |
 | **Q17** | `CORE_LOGIC` | Mục đích gốc Sonic R. vs Biến thể dự án | **PASS** | `KNOWLEDGE_BASE/02_SONIC_R_METHOD_AND_PROJECT_ADAPTATION.md` §1–§2; Forex Factory [S1], [S2] | Phân tích sâu triết lý price-action wave M15 của Sonicdeejay; nêu rõ các quy tắc chuyển dịch sang M5 và tham số hóa riêng của dự án. | 1/1 |
 | **Q18** | `CORE_LOGIC` | Dải Dragon vs EMA89 vs EMA200 | **PASS** | `KNOWLEDGE_BASE/02_...` §2; `01_SPEC_LOCK.md` §3 | Định nghĩa đúng Dragon (EMA34 H/C/L), Trend Line EMA89, và Macro EMA200 tham khảo (`use_e200=False`). | 1/1 |
 | **Q19** | `CORE_LOGIC` | Phân biệt Touch, Bounce và Breakout | **PASS** | `KNOWLEDGE_BASE/02_...` §3–§4; `01_SPEC_LOCK.md` §3; `02_ISSUE_REGISTER.md` (ISS-06) | Tách biệt rạch ròi 3 trạng thái; chỉ rõ các chi tiết kỹ thuật cần chốt (nến đóng vs râu, độ trễ) trước khi can thiệp code. | 1/1 |
@@ -237,19 +237,24 @@
     - `indie.drawings.BlockProfile`: Là một **lớp đối tượng đồ họa (drawing primitive)** dùng để vẽ lưới trực quan (các khối ô chữ cái hoặc màu) lên biểu đồ với các phương thức như `add_column`, `add_cell`, `add_level`, `clear`. Lớp này hoàn toàn không tự động tính toán dữ liệu TPO.
     - `sources.Tpo()` và `TpoProfile` (`indie.data`): Là **nguồn dữ liệu và cấu trúc dữ liệu TPO có cấu trúc (structured data API)** được TakeProfit bổ sung trong tài liệu cập nhật (tháng 09/2026), cho phép yêu cầu dữ liệu TPO profile qua cú pháp `request_series[TpoProfile](source=sources.Tpo(...), time_frame=...)`.
   - **Các trường dữ liệu được cung cấp sẵn trên `TpoProfile`:**
-    - `point_of_control`: Mức giá có số lượng TPO tích lũy lớn nhất trong phiên (POC).
+    - `point_of_control`: Mức giá (price level) có số lượng TPO tích lũy lớn nhất trong phiên (POC). *Lưu ý quan trọng:* `TpoProfile` **không** có thuộc tính `point_of_control_index`.
     - `initial_balance_high` & `initial_balance_low`: Mức giá cao nhất và thấp nhất của Initial Balance (biên độ khung thời gian ban đầu của phiên).
     - `row_size`: Độ cao của mỗi hàng giá (row height).
     - Danh sách các hàng giá (`rows`) và metadata các block/cột thời gian (`row.block_indexes`, `len(row.block_indexes)`).
   - **Thuật toán xác định Value Area (VAH / VAL) chuẩn xác theo tài liệu TakeProfit:**
     - Đối tượng `TpoProfile` **KHÔNG** cung cấp sẵn các thuộc tính `value_area_high`, `value_area_low` hay tỷ lệ Value Area. Script bắt buộc phải tự tính toán theo quy trình thuật toán chính thức:
       1. *Kiểm tra an toàn (Guard condition):* Xác nhận profile có dữ liệu (`len(profile.rows) > 0`). Nếu `rows` rỗng thì không truy cập.
-      2. *Điểm khởi đầu:* Bắt đầu tại hàng giá chứa POC (`poc_index = profile.point_of_control_index` hoặc duyệt tìm hàng có `price == point_of_control`). Số TPO ban đầu là `covered = len(rows[poc_index].block_indexes)`. Khởi tạo cận trên và cận dưới: `low_index = poc_index`, `high_index = poc_index`.
-      3. *Vòng lặp mở rộng từng bước (Single-row iterative expansion):* Trong mỗi vòng lặp, đọc số lượng TPO của hàng kề trên (`high_index + 1`) và hàng kề dưới (`low_index - 1`) nếu các hàng đó tồn tại trong biên `[0, len(rows) - 1]`.
-      4. *Quy tắc chọn hàng:* Chọn **đúng MỘT hàng** để thêm vào Value Area:
-         - Nếu một phía có số TPO strictly lớn hơn phía kia, chọn hàng phía đó.
-         - **Quy tắc xử lý hòa (Tie-break Rule chính thức):** Nếu hai hàng kề có số TPO bằng nhau, so sánh khoảng cách của chúng đến POC (`abs(candidate_index - poc_index)`). Hàng nào gần POC hơn sẽ được chọn. Nếu hai hàng có khoảng cách đến POC bằng nhau, **chọn hàng phía trên (`high_index + 1`)**.
-      5. *Cộng dồn số lượng TPO:* Chỉ cộng số TPO của **duy nhất hàng vừa được chọn** vào `covered` (tuyệt đối không cộng cả hai hàng kề trong một bước) và cập nhật biên (`high_index += 1` hoặc `low_index -= 1`).
+      2. *Xác định chỉ số hàng chứa POC (`poc_index`):* Vì `TpoProfile` không cung cấp thuộc tính `point_of_control_index`, script duyệt qua danh sách `rows` theo đúng quy trình tài liệu TakeProfit để tìm chỉ số hàng có số lượng TPO lớn nhất (`len(row.block_indexes)`), cập nhật chỉ số khi gặp hàng có số lượng block strictly lớn hơn (hoặc đối chiếu `row.price == profile.point_of_control`). Số TPO ban đầu là `covered = len(rows[poc_index].block_indexes)`. Khởi tạo cận trên và cận dưới: `low_index = poc_index`, `high_index = poc_index`.
+      3. *Vòng lặp mở rộng từng bước (Single-row iterative expansion):* Trong mỗi vòng lặp, kiểm tra sự tồn tại của hàng kề trên (`has_up = (high_index + 1 < len(rows))`) và hàng kề dưới (`has_down = (low_index - 1 >= 0)`).
+      4. *Quy tắc chọn đúng một hàng:*
+         - Nếu cả hai phía đều không còn hàng (`not has_up and not has_down`): Dừng vòng lặp ngay lập tức.
+         - **Trường hợp biên một phía (One-sided boundary):**
+           - Nếu chỉ còn hàng phía trên (`has_up and not has_down`): Chọn hàng phía trên (`high_index + 1`).
+           - Nếu chỉ còn hàng phía dưới (`has_down and not has_up`): Chọn hàng phía dưới (`low_index - 1`).
+         - **Trường hợp hai phía (Two-sided comparison):** Nếu cả hai hàng kề đều tồn tại:
+           - So sánh số lượng TPO: Hàng nào có số TPO lớn hơn strictly (`len(rows[idx].block_indexes)`) sẽ được chọn.
+           - **Quy tắc xử lý hòa (Official Tie-break Rule):** Nếu số TPO của hai hàng bằng nhau, so sánh khoảng cách của chúng đến POC (`abs(candidate_index - poc_index)`). Hàng nào gần POC hơn sẽ được chọn. Nếu khoảng cách đến POC cũng bằng nhau, **chọn hàng phía trên (`high_index + 1`)**.
+      5. *Cộng dồn số lượng TPO:* Chỉ cộng số TPO của **duy nhất hàng vừa được chọn** vào `covered` (tuyệt đối không cộng cả hai hàng kề trong một bước) và cập nhật chỉ số biên tương ứng (`high_index += 1` hoặc `low_index -= 1`).
       6. *Điều kiện dừng:* Lặp lại các bước trên cho đến khi `covered >= total_blocks * value_area_ratio` (với `value_area_ratio` mặc định thường là $0.70$, tương ứng 70% tổng số TPO của toàn profile).
       7. *Quy ước hình học biên giá (Boundary Geometry Convention):*
          - Thuộc tính `rows[i].price` là **biên dưới (lower bound)** của hàng giá thứ `i`.
