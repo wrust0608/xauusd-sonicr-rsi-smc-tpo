@@ -32,7 +32,7 @@
 | **C14** | `CRITICAL` | Chỉ số `[1]` trên chuỗi MTF | **PASS** | `KNOWLEDGE_BASE/07_...` §2–§3; TakeProfit [S16] | Giải thích cặn kẽ: `[1]` trên chuỗi đã nội suy xuống M5 không chứng minh nến HTF đóng; phải lấy từ secondary context và test ranh giới. | 2/2 |
 | **C15** | `CRITICAL` | Hồ sơ bộ nhớ dự án bền vững | **PASS** | `KNOWLEDGE_BASE/12_PERSISTENT_MEMORY_PROTOCOL.md` §1–§3; `00_BAT_DAU_TAI_DAY.md` §4 | Liệt kê đầy đủ 6 file trong `learning_records/` và changelog; khẳng định bộ nhớ lưu bằng file thực tế trên đĩa, không lưu bằng chat. | 2/2 |
 | **C16** | `CRITICAL` | Các hành động bị cấm trước khi duyệt Gate | **PASS** | `KNOWLEDGE_BASE/00_INDEX_AND_LEARNING_GATE.md` §5–§6; `00_BAT_DAU_TAI_DAY.md` §1 | Liệt kê rõ: cấm tạo prototype, cấm sửa code core, cấm đổi spec, cấm port SMC/TPO, cấm tự phong duyệt bản thân. | 2/2 |
-| **C17** | `CRITICAL — ADDENDUM` | `BlockProfile` vs `sources.Tpo()` & VAH/VAL | **PASS** | `KNOWLEDGE_BASE/05_...` §6; `06_...` §3; TakeProfit Docs [S11, S19, S20, S21] | Phân biệt chính xác drawing class vs data source; liệt kê đúng các trường trên `TpoProfile`; nêu rõ VAH/VAL phải tự tính tích lũy 70% từ POC; xác định ranh giới Exness `RUNTIME_REQUIRED` và xung đột phiên mặc định vs S1/S2/S3. | 2/2 |
+| **C17** | `CRITICAL — ADDENDUM` | `BlockProfile` vs `sources.Tpo()` & VAH/VAL | **PASS** | `KNOWLEDGE_BASE/05_...` §6; `06_...` §3; TakeProfit Docs [S11, S19, S20, S21] | Phân biệt chính xác drawing class vs data source; liệt kê đúng các trường trên `TpoProfile`; mô tả chuẩn xác thuật toán mở rộng 1 hàng kèm quy tắc tie-break (khoảng cách POC, ưu tiên hàng trên); phân biệt lower bound vs upper edge (`row.price + row_size`); xác định ranh giới Exness `RUNTIME_REQUIRED` và xung đột phiên mặc định vs S1/S2/S3. | 2/2 |
 | **Q17** | `CORE_LOGIC` | Mục đích gốc Sonic R. vs Biến thể dự án | **PASS** | `KNOWLEDGE_BASE/02_SONIC_R_METHOD_AND_PROJECT_ADAPTATION.md` §1–§2; Forex Factory [S1], [S2] | Phân tích sâu triết lý price-action wave M15 của Sonicdeejay; nêu rõ các quy tắc chuyển dịch sang M5 và tham số hóa riêng của dự án. | 1/1 |
 | **Q18** | `CORE_LOGIC` | Dải Dragon vs EMA89 vs EMA200 | **PASS** | `KNOWLEDGE_BASE/02_...` §2; `01_SPEC_LOCK.md` §3 | Định nghĩa đúng Dragon (EMA34 H/C/L), Trend Line EMA89, và Macro EMA200 tham khảo (`use_e200=False`). | 1/1 |
 | **Q19** | `CORE_LOGIC` | Phân biệt Touch, Bounce và Breakout | **PASS** | `KNOWLEDGE_BASE/02_...` §3–§4; `01_SPEC_LOCK.md` §3; `02_ISSUE_REGISTER.md` (ISS-06) | Tách biệt rạch ròi 3 trạng thái; chỉ rõ các chi tiết kỹ thuật cần chốt (nến đóng vs râu, độ trễ) trước khi can thiệp code. | 1/1 |
@@ -234,20 +234,40 @@
 #### C17. [CRITICAL — ADDENDUM] Phân biệt giữa lớp `indie.drawings.BlockProfile` và API dữ liệu TPO native (`sources.Tpo()` / `TpoProfile` trong `indie.data`). Các trường dữ liệu nào được `TpoProfile` cung cấp sẵn, cách xác định Value Area (VAH/VAL) như thế nào, và những gì vẫn chưa được kiểm chứng đối với Exness?
 - **Trả lời:**
   - **Phân biệt `BlockProfile` và `sources.Tpo()` / `TpoProfile`:**
-    - `indie.drawings.BlockProfile`: Là một **lớp đối tượng đồ họa (drawing primitive)** dùng để vẽ lưới trực quan (các khối chữ cái hoặc ô màu) lên biểu đồ với các phương thức như `add_column`, `add_cell`, `add_level`, `clear`. Lớp này hoàn toàn không tự động tính toán dữ liệu TPO.
+    - `indie.drawings.BlockProfile`: Là một **lớp đối tượng đồ họa (drawing primitive)** dùng để vẽ lưới trực quan (các khối ô chữ cái hoặc màu) lên biểu đồ với các phương thức như `add_column`, `add_cell`, `add_level`, `clear`. Lớp này hoàn toàn không tự động tính toán dữ liệu TPO.
     - `sources.Tpo()` và `TpoProfile` (`indie.data`): Là **nguồn dữ liệu và cấu trúc dữ liệu TPO có cấu trúc (structured data API)** được TakeProfit bổ sung trong tài liệu cập nhật (tháng 09/2026), cho phép yêu cầu dữ liệu TPO profile qua cú pháp `request_series[TpoProfile](source=sources.Tpo(...), time_frame=...)`.
   - **Các trường dữ liệu được cung cấp sẵn trên `TpoProfile`:**
     - `point_of_control`: Mức giá có số lượng TPO tích lũy lớn nhất trong phiên (POC).
     - `initial_balance_high` & `initial_balance_low`: Mức giá cao nhất và thấp nhất của Initial Balance (biên độ khung thời gian ban đầu của phiên).
     - `row_size`: Độ cao của mỗi hàng giá (row height).
-    - Danh sách các hàng giá (`rows`) và metadata các block/cột thời gian (`row.block_indexes`).
-  - **Cách xác định Value Area (VAH / VAL):**
-    - Đối tượng `TpoProfile` **KHÔNG** cung cấp sẵn các thuộc tính `value_area_high` hay `value_area_low`.
-    - Theo tài liệu hướng dẫn của TakeProfit, Value Area phải được **tính toán thủ công trong script** bằng thuật toán mở rộng tích lũy chuẩn: bắt đầu từ hàng giá POC, xét mở rộng tuần tự lên trên và xuống dưới (mỗi bước so sánh và cộng dồn số lượng TPO của 2 hàng kế tiếp) cho đến khi tổng số TPO tích lũy đạt đủ $\ge 70\%$ tổng số TPO của toàn profile phiên. Hàng cao nhất và thấp nhất trong vùng tích lũy đó lần lượt là VAH và VAL.
+    - Danh sách các hàng giá (`rows`) và metadata các block/cột thời gian (`row.block_indexes`, `len(row.block_indexes)`).
+  - **Thuật toán xác định Value Area (VAH / VAL) chuẩn xác theo tài liệu TakeProfit:**
+    - Đối tượng `TpoProfile` **KHÔNG** cung cấp sẵn các thuộc tính `value_area_high`, `value_area_low` hay tỷ lệ Value Area. Script bắt buộc phải tự tính toán theo quy trình thuật toán chính thức:
+      1. *Kiểm tra an toàn (Guard condition):* Xác nhận profile có dữ liệu (`len(profile.rows) > 0`). Nếu `rows` rỗng thì không truy cập.
+      2. *Điểm khởi đầu:* Bắt đầu tại hàng giá chứa POC (`poc_index = profile.point_of_control_index` hoặc duyệt tìm hàng có `price == point_of_control`). Số TPO ban đầu là `covered = len(rows[poc_index].block_indexes)`. Khởi tạo cận trên và cận dưới: `low_index = poc_index`, `high_index = poc_index`.
+      3. *Vòng lặp mở rộng từng bước (Single-row iterative expansion):* Trong mỗi vòng lặp, đọc số lượng TPO của hàng kề trên (`high_index + 1`) và hàng kề dưới (`low_index - 1`) nếu các hàng đó tồn tại trong biên `[0, len(rows) - 1]`.
+      4. *Quy tắc chọn hàng:* Chọn **đúng MỘT hàng** để thêm vào Value Area:
+         - Nếu một phía có số TPO strictly lớn hơn phía kia, chọn hàng phía đó.
+         - **Quy tắc xử lý hòa (Tie-break Rule chính thức):** Nếu hai hàng kề có số TPO bằng nhau, so sánh khoảng cách của chúng đến POC (`abs(candidate_index - poc_index)`). Hàng nào gần POC hơn sẽ được chọn. Nếu hai hàng có khoảng cách đến POC bằng nhau, **chọn hàng phía trên (`high_index + 1`)**.
+      5. *Cộng dồn số lượng TPO:* Chỉ cộng số TPO của **duy nhất hàng vừa được chọn** vào `covered` (tuyệt đối không cộng cả hai hàng kề trong một bước) và cập nhật biên (`high_index += 1` hoặc `low_index -= 1`).
+      6. *Điều kiện dừng:* Lặp lại các bước trên cho đến khi `covered >= total_blocks * value_area_ratio` (với `value_area_ratio` mặc định thường là $0.70$, tương ứng 70% tổng số TPO của toàn profile).
+      7. *Quy ước hình học biên giá (Boundary Geometry Convention):*
+         - Thuộc tính `rows[i].price` là **biên dưới (lower bound)** của hàng giá thứ `i`.
+         - Do đó:
+           - $\text{VAL} = \text{rows}[\text{low\_index}].\text{price}$ (chính là biên dưới của hàng thấp nhất thuộc Value Area).
+           - $\text{VAH}_{\text{lower}} = \text{rows}[\text{high\_index}].\text{price}$ (biên dưới của hàng cao nhất thuộc Value Area).
+           - $\text{VAH}_{\text{upper}} = \text{rows}[\text{high\_index}].\text{price} + \text{profile}.\text{row\_size}$ (biên trên hình học thực tế của Value Area).
   - **Những điểm chưa được kiểm chứng đối với Exness (`RUNTIME_REQUIRED` & xung đột phiên):**
-    1. *Khả năng hỗ trợ của runtime Exness:* Exness Terminal Web là môi trường nhúng do Exness vận hành; việc TakeProfit có tài liệu không chứng minh runtime Exness hiện tại đã kích hoạt `BlockProfile` hay thư viện `indie.data.sources.Tpo()`. Cả hai bắt buộc phải được kiểm chứng qua smoke test tối thiểu trên runtime Exness.
+    1. *Khả năng hỗ trợ của runtime Exness:* Exness Terminal Web là môi trường nhúng do Exness vận hành; việc TakeProfit có tài liệu không chứng minh runtime Exness hiện tại đã kích hoạt `BlockProfile` hay thư viện `indie.data.sources.Tpo()`. Cả hai bắt buộc phải được kiểm chứng qua smoke test tối thiểu trên runtime Exness (`RUNTIME_REQUIRED`).
     2. *Xung đột cấu hình phiên:* Nguồn `sources.Tpo()` của Indie mặc định gộp cả pre-market, main session và post-market thành một profile ngày. Trong khi đó, đặc tả của người dùng (`TPO Session v1.01`) yêu cầu chia thành **3 phiên riêng biệt theo giờ Việt Nam**: S1 Á (06:00–14:59/13:59), S2 Âu (15:00–19:59/14:00–18:59) và S3 Mỹ (20:00–05:59/19:00–05:59 qua đêm) cùng bước giá cố định $0.1 \times 12 = 1.2$. Do đó, native API không tự động đáp ứng yêu cầu phiên của người dùng nếu không có giải pháp mapping phiên tùy biến.
-- **Nguồn dẫn chứng:** `KNOWLEDGE_BASE/05_TPO_MARKET_PROFILE_AND_USER_SPEC.md` §6, `KNOWLEDGE_BASE/06_INDIE_V5_RUNTIME_AND_PLATFORM_COMPATIBILITY.md` §3, TakeProfit Drawings Docs [S11], TakeProfit TPO Profiles Docs [S19], `indie.data` Docs [S20], Changelog [S21], `user_inputs/TPO_HUONG_DAN.txt`.
+- **Nguồn dẫn chứng chính thức:**
+  - TakeProfit TPO Profiles Docs: `https://takeprofit.com/docs/indie/Profile-data/TPO-profiles` [S19]
+  - TakeProfit Package indie.data: `https://takeprofit.com/docs/indie/Library-reference/package-indie-data` [S20]
+  - TakeProfit Package indie.data.sources: `https://takeprofit.com/docs/indie/Library-reference/package-indie-data-sources`
+  - TakeProfit Guide Changelog: `https://takeprofit.com/docs/guide/changelog` [S21]
+  - TakeProfit Drawings Docs: `https://takeprofit.com/docs/indie/Library-reference/package-indie-drawings` [S11]
+  - Exness Help Center: `https://get.exness.help/hc/en-us/articles/27261267831068-Custom-indicators-in-Exness-Terminal` [S12]
+  - Hướng dẫn cấu hình TPO của người dùng: `user_inputs/TPO_HUONG_DAN.txt`.
 
 ---
 

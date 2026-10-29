@@ -1,5 +1,18 @@
 # Knowledge-base changelog
 
+## v1.2.2 — 2026-10-29 (Phase 0 C17 Algorithmic Correction & Release Candidate 2)
+- Corrected Critical Question `C17` answer in `learning_records/ASSESSMENT_ANSWERS.md` and grading matrix to rigorously reflect TakeProfit's official single-row outward expansion algorithm from POC:
+  - Guard condition: verify `len(profile.rows) > 0` before row access.
+  - Step-by-step single-row selection: inspect adjacent upper (`high_index + 1`) and lower (`low_index - 1`) candidate rows; select and accumulate only the single row with strictly greater TPO count.
+  - Official tie-break rule: if TPO counts are equal, choose the candidate row closer to POC; if distances to POC are also equal, choose the upper row.
+  - Prohibited accumulating both adjacent rows in one step.
+  - Boundary geometry convention: `rows[i].price` is the lower bound; $\text{VAL} = \text{rows}[\text{low\_index}].\text{price}$; $\text{VAH}_{\text{lower}} = \text{rows}[\text{high\_index}].\text{price}$; geometric upper edge of Value Area is $\text{VAH}_{\text{upper}} = \text{rows}[\text{high\_index}].\text{price} + \text{profile}.\text{row\_size}$.
+  - Added direct official documentation link to `https://takeprofit.com/docs/indie/Profile-data/TPO-profiles`.
+- Updated `learning_records/CLAIM_LEDGER.md` (`CLM-23`), `learning_records/PROJECT_MEMORY.md` §3, `learning_records/LEARNING_REPORT.md` §B.5 & §D, and `KNOWLEDGE_BASE/05_TPO_MARKET_PROFILE_AND_USER_SPEC.md` §6 to synchronize with this precise algorithmic specification.
+- Recomputed all checksums and byte counts in `MANIFEST_CHECKSUMS.txt`.
+- Rebuilt `Phase0_Deliverables_Bundle.zip` with clean forward-slash entries.
+- Re-verified all 8 baseline files: 100% hash-identical to baseline. Zero indicator code created or modified.
+
 ## v1.2.1 — 2026-10-29 (Phase 0 Addendum — Native TPO API & Deliverables Alignment)
 - Added official primary sources `[S19]` (TakeProfit TPO Profiles docs), `[S20]` (`indie.data` package docs), and `[S21]` (TakeProfit Changelog Sep 2026) to `KNOWLEDGE_BASE/11_SOURCE_REGISTER_AND_CLAIM_MAP.md`.
 - Updated `KNOWLEDGE_BASE/05_TPO_MARKET_PROFILE_AND_USER_SPEC.md` §6 and `KNOWLEDGE_BASE/06_INDIE_V5_RUNTIME_AND_PLATFORM_COMPATIBILITY.md` §3 to distinguish `BlockProfile` (drawing primitive) from `sources.Tpo()` / `TpoProfile` (structured data API), documenting native fields (POC, IB, row_size), manual Value Area (VAH/VAL) derivation (outward expansion to 70%), default session grouping mismatch vs user's S1/S2/S3 schedule, and Exness `RUNTIME_REQUIRED` boundary.

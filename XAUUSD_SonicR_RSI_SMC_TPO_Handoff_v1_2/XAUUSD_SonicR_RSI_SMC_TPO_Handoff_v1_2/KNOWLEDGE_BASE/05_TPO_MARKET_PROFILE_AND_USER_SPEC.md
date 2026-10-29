@@ -75,10 +75,22 @@ TakeProfit Indie documentation describes two distinct mechanisms related to TPO 
    A visual rendering primitive providing a grid of price rows against time columns. Documented fields include `row_size`, `time_from`, `time_to`; methods include `add_column`, `add_cell`, `add_level`, `set_palette`, `clear`, `is_empty`. This is a tool to draw blocks/cells onto the chart; it does not compute TPO distribution or identify POC.
 
 2. **Native profile data API — `sources.Tpo()` and `TpoProfile` (`indie.data`) [S19, S20, S21]:**
-   Documented in TakeProfit Indie (added in the September 2026 update). It allows requesting structured TPO profile series using `request_series[TpoProfile](source=sources.Tpo(...), time_frame=...)`.
+   Documented in TakeProfit Indie (added in the September 2026 update, see `https://takeprofit.com/docs/indie/Profile-data/TPO-profiles`). It allows requesting structured TPO profile series using `request_series[TpoProfile](source=sources.Tpo(...), time_frame=...)`.
    - **Available fields on `TpoProfile`:** `point_of_control`, `initial_balance_high`, `initial_balance_low`, `row_size`, price rows, and block metadata (`row.block_indexes`, `len(row.block_indexes)`).
    - **Configuration options on `sources.Tpo()`:** `block_size` (e.g. 30m), `row_size_ticks`, and session grouping. By default, it merges main session, pre-market, and post-market into a single daily profile.
-   - **Crucial limitation regarding VAH / VAL:** The raw `TpoProfile` object does **NOT** provide pre-calculated `value_area_high` (VAH), `value_area_low` (VAL), or a value-area ratio. The TakeProfit documentation explicitly explains that VAH and VAL must be programmatically derived by expanding outward from `point_of_control`, comparing neighboring price rows and accumulating TPO counts until reaching the desired threshold (typically 70%).
+   - **Crucial limitation & Exact Algorithm for Value Area (VAH / VAL):** The raw `TpoProfile` object does **NOT** provide pre-calculated `value_area_high` (VAH), `value_area_low` (VAL), or value-area ratio. The TakeProfit documentation provides the exact algorithm to derive them:
+     1. Safeguard: verify profile is not empty (`len(profile.rows) > 0`).
+     2. Start at the row index containing the POC (`poc_index`); initial covered TPO count is `len(rows[poc_index].block_indexes)`.
+     3. Track boundaries: `low_index = poc_index`, `high_index = poc_index`.
+     4. In each iteration, inspect the adjacent row above (`high_index + 1`) and adjacent row below (`low_index - 1`) if they exist within `[0, len(rows) - 1]`.
+     5. Select **exactly ONE row** to expand into: the row with the strictly greater TPO count (`len(row.block_indexes)`).
+     6. **Official Tie-break Rule:** If both candidate rows have equal TPO counts, compare their distance to the POC (`abs(candidate_index - poc_index)`). Select the row closer to POC. If distances to POC are also equal, select the upper row (`high_index + 1`).
+     7. Accumulate only the TPO count of that single selected row into `covered` and increment `high_index` or decrement `low_index`. Never accumulate both adjacent rows in one step.
+     8. Loop until `covered >= total_blocks * value_area_ratio` (e.g., 70%).
+     9. **Boundary Geometry Convention:** `rows[i].price` represents the **lower bound** of that row. Therefore:
+        - $\text{VAL} = \text{rows}[\text{low\_index}].\text{price}$ (lower boundary of the lowest row in Value Area).
+        - $\text{VAH}_{\text{lower}} = \text{rows}[\text{high\_index}].\text{price}$ (lower boundary of the highest row in Value Area).
+        - $\text{VAH}_{\text{upper}} = \text{rows}[\text{high\_index}].\text{price} + \text{profile}.\text{row\_size}$ (true geometric upper edge of the Value Area).
 
 **Crucial Platform Boundary (TakeProfit vs Exness):**
 Both `BlockProfile` and `sources.Tpo()` are documented in TakeProfit's upstream documentation. However, Exness Terminal Web operates an embedded, hosted Indie runtime. Whether Exness has enabled either `BlockProfile` or `indie.data.sources.Tpo()` is strictly `RUNTIME_REQUIRED` and requires a separate isolated smoke test once authorized by the manager.

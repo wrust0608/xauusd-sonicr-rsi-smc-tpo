@@ -5,7 +5,7 @@
 **Current Gate:** Phase 0 — Learning Gate  
 **Gate Status:** `PENDING` (Submitted for Manager Review)  
 **Code Authority:** `NOT GRANTED` (Strict Phase 0 discipline — Zero indicator code created or modified)  
-**Knowledge Base Version:** v1.2.1 (Addendum Complete)  
+**Knowledge Base Version:** v1.2.2 (C17 Algorithmic Correction Complete)  
 
 ---
 
@@ -15,17 +15,17 @@ Hồ sơ bàn giao và các tài liệu học tập của Phase 0 đã được 
 
 ### 📦 Hồ sơ bàn giao chính thức (Deliverables Bundle)
 - **Tệp nén bàn giao:** [`Phase0_Deliverables_Bundle.zip`](./Phase0_Deliverables_Bundle.zip)  
-  *Kích thước:* `50,764 bytes` | *SHA-256:* `6CCDB8400BA42CC3C92F28B5FE71FC66E54438F112FC28648480FB470B24F1BD`
+  *Kích thước:* `52,985 bytes` | *SHA-256:* `52AF3D273DC6B1EA6547AE5E9C99DE98F7C22082DE69A92D1150832DF1A306C7`
 - **Kê khai mã băm bàn giao:** [`MANIFEST_CHECKSUMS.txt`](./XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/MANIFEST_CHECKSUMS.txt)
 
 ### 📑 Bộ hồ sơ lưu trữ bền vững (Persistent Learning Records)
 1. 📋 [**Báo cáo học tập toàn diện (LEARNING_REPORT.md)**](./XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/learning_records/LEARNING_REPORT.md): Tổng hợp 8 chủ đề kiến thức, xác thực nguồn chính thức và cam kết kỷ luật.
-2. 📝 [**Bài đánh giá 35 câu & Ma trận chấm điểm (ASSESSMENT_ANSWERS.md)**](./XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/learning_records/ASSESSMENT_ANSWERS.md): Trả lời chi tiết 17 câu Critical (C1–C17) và 18 câu General (Q17–Q34). Điểm số chuẩn hóa: **100/100** (52/52 điểm thô, 100% Critical Pass).
+2. 📝 [**Bài đánh giá 35 câu & Ma trận chấm điểm (ASSESSMENT_ANSWERS.md)**](./XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/learning_records/ASSESSMENT_ANSWERS.md): Trả lời chi tiết 17 câu Critical (C1–C17) và 18 câu General (Q17–Q34). C17 được sửa đổi chuẩn xác theo thuật toán mở rộng 1 hàng và quy tắc tie-break chính thức. Điểm số chuẩn hóa: **100/100** (52/52 điểm thô, 100% Critical Pass).
 3. 📖 [**Sổ theo dõi khẳng định (CLAIM_LEDGER.md)**](./XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/learning_records/CLAIM_LEDGER.md): Đăng ký và phân loại 24 khẳng định kỹ thuật (CLM-01 đến CLM-24) với nhãn bằng chứng rõ ràng.
 4. 🔍 [**Khoảng trống kiến thức & Source Blockers (KNOWLEDGE_GAPS.md)**](./XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/learning_records/KNOWLEDGE_GAPS.md): 5 blocker P0 (thiếu source SMC/TPO, kiểm thử runtime Exness, feature inventory SMC, grid origin) và 5 gap P1.
 5. 🧠 [**Bộ nhớ dự án chuẩn (PROJECT_MEMORY.md)**](./XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/learning_records/PROJECT_MEMORY.md): Bản ghi nhớ trung tâm về bất biến, ranh giới kiến trúc và trạng thái `PENDING`.
 6. 🚀 [**Quy trình mở phiên (SESSION_START_CHECKLIST.md)**](./XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/learning_records/SESSION_START_CHECKLIST.md): Quy trình 7 bước an toàn bắt buộc trước mỗi phiên làm việc.
-7. 📜 [**Nhật ký tri thức (CHANGELOG_KNOWLEDGE.md)**](./XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/CHANGELOG_KNOWLEDGE.md): Nhật ký cập nhật Knowledge Base v1.2.1 ghi nhận các bổ sung về native TPO API.
+7. 📜 [**Nhật ký tri thức (CHANGELOG_KNOWLEDGE.md)**](./XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/CHANGELOG_KNOWLEDGE.md): Nhật ký cập nhật Knowledge Base v1.2.2 ghi nhận hiệu chỉnh thuật toán câu C17 và dựng Release Candidate 2.
 
 ### 📚 Tài liệu đặc tả và cơ sở tri thức gốc
 - 🎯 [**Bắt đầu tại đây (00_BAT_DAU_TAI_DAY.md)**](./XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/00_BAT_DAU_TAI_DAY.md)
@@ -57,3 +57,4 @@ Tất cả 8 tệp gốc được kiểm tra mã băm SHA-256 đối chiếu v�
 
 > **TUYỆT ĐỐI KHÔNG TẠO MỚI, CHỈNH SỬA, REFACTOR HOẶC THỬ NGHIỆM CODE CHỈ BÁO.**  
 > Trạng thái hiện tại là **`PENDING`**. Agent tuyệt đối không có quyền tự phê duyệt để chuyển sang giai đoạn audit hoặc triển khai mã nguồn khi chưa có văn bản chấp thuận chính thức từ Người quản lý.
+
