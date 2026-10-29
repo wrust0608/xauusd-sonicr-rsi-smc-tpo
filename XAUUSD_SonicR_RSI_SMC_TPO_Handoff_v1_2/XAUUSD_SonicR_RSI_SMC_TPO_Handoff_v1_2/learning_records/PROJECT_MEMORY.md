@@ -1,7 +1,7 @@
 # PROJECT MEMORY — CANONICAL STATE & SOURCE OF TRUTH
 
 **Project Name:** XAUUSD visual-analysis indicator suite — Sonic R. + RSI Trend Pulse + SMC + TPO  
-**Knowledge Base Version:** 1.2.0  
+**Knowledge Base Version:** 1.2.4  
 **Current Gate Status:** `PENDING` (Submitted for Manager Review)  
 **Implementation / Code Permission:** `NOT GRANTED` (Strict Phase 0 discipline)  
 **Target Environment Assumption:** Exness Terminal Web / TakeProfit Indie v5  
@@ -34,7 +34,7 @@
 - `user_inputs/TPO_Session_v1.01.zip`: File nhị phân MT5 kèm hướng dẫn `TPO_HUONG_DAN.txt`. Xác nhận `row_height = 0.1 * 12 = 1.2` và lịch phiên S1/S2/S3; các đầu ra POC, VAH/VAL, IB hiện là `UNKNOWN`.
 - **TPO APIs trong Indie v5 & Ranh giới Exness (`RUNTIME_REQUIRED`):**
   - Đối tượng đồ họa `indie.drawings.BlockProfile`: cung cấp các phương thức vẽ `add_column`, `add_cell`, `add_level` nhưng không tự động tính toán dữ liệu TPO.
-  - Nguồn dữ liệu native `sources.Tpo()` và đối tượng `TpoProfile` (`indie.data`): cung cấp `point_of_control` (giá POC, không có `point_of_control_index`), `initial_balance_high`, `initial_balance_low`, `row_size` và metadata hàng giá. Tuy nhiên, `TpoProfile` **không** có sẵn VAH/VAL; thuật toán chính thức phải mở rộng đúng 1 hàng mỗi bước (chọn hàng duy nhất nếu chỉ có 1 biên; so sánh chọn hàng có TPO cao hơn nếu có 2 biên; tie-break theo khoảng cách POC rồi ưu tiên hàng trên; VAH upper edge = `rows[high_index].price + row_size`) đến khi đạt $\ge 70\%$. Nguồn này mặc định gộp cả ngày thành một profile (xung đột với lịch 3 phiên S1/S2/S3 của người dùng).
+  - Nguồn dữ liệu native `sources.Tpo()` và đối tượng `TpoProfile` (`indie.data`): cung cấp `point_of_control` (giá POC, không có `point_of_control_index`, quy trình quét chính thức khởi tạo `poc_index = 0` và cập nhật khi TPO strictly lớn hơn; không dùng suy đoán đối chiếu giá), `initial_balance_high`, `initial_balance_low`, `row_size` và metadata hàng giá. Tuy nhiên, `TpoProfile` **không** có sẵn VAH/VAL; thuật toán chính thức phải mở rộng đúng 1 hàng mỗi bước (chọn hàng duy nhất nếu chỉ có 1 biên; so sánh chọn hàng có TPO cao hơn nếu có 2 biên; tie-break theo khoảng cách POC rồi ưu tiên hàng trên; VAH upper edge = `rows[high_index].price + row_size`) đến khi đạt $\ge 70\%$. Nguồn này mặc định gộp các phiên thành một profile cho mỗi timeframe được yêu cầu (ví dụ 1D tạo profile ngày, xung đột với lịch 3 phiên S1/S2/S3 của người dùng).
   - Cả hai cơ chế đều chưa được xác thực có hoạt động trên runtime Exness Terminal Web hay không (`RUNTIME_REQUIRED`).
 
 ---
