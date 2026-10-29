@@ -15,7 +15,7 @@ Hồ sơ bàn giao và các tài liệu học tập của Phase 0 đã được 
 
 ### 📦 Hồ sơ bàn giao chính thức (Deliverables Bundle)
 - **Tệp nén bàn giao:** [`Phase0_Deliverables_Bundle.zip`](./Phase0_Deliverables_Bundle.zip)  
-  *Kích thước:* `147,079 bytes` | *SHA-256:* `1057F446B1AA9CCC5BB65C79E25ED1350391AAB2F5F159F60580DCE01B10AF68`
+  *Kích thước:* `147,079 bytes` | *SHA-256:* `9EADCC4977085D28E1D6E5A232E7C785BB39A726D011EFC19B36268E60AE7E09`
 - **Kê khai mã băm bàn giao:** [`MANIFEST_CHECKSUMS.txt`](./XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/XAUUSD_SonicR_RSI_SMC_TPO_Handoff_v1_2/MANIFEST_CHECKSUMS.txt)
 
 ### 📑 Bộ hồ sơ lưu trữ bền vững (Persistent Learning Records)
