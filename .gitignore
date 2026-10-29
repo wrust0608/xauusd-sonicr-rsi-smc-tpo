@@ -11,3 +11,7 @@ $RECYCLE.BIN/
 *.swp
 *~
 
+
+__pycache__/
+*.pyc
+compile_*.log

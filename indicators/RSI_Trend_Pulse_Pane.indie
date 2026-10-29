@@ -1,0 +1,91 @@
+# indie:lang_version = 5
+import math
+from indie import indicator, param, plot, color, level, band, Var, MainContext, sec_context, TimeFrame
+from indie.algorithms import Ema, Rsi, Wma
+@sec_context
+def HtfPulse(self) -> tuple[float, float, float, float]:
+    r = Rsi.new(self.close, 14)
+    w = Wma.new(r, 45)
+    return r[1], Ema.new(r, 9)[1], w[1], w[1] - w[2]
+@indicator('RSI Trend Pulse MTF Pane', overlay_main_pane=False)
+@param.bool('strict_htf', default=False, title='Strict H4 & H1 Full Alignment')
+@param.float('min_slp', default=0.05, min=0.0, title='Min H4/H1 WMA45 Slope')
+@param.float('tangle_sp', default=2.5, min=0.5, title='Min H4/H1 3-Line Spread')
+@param.float('w45_tol', default=2.0, min=0.5, title='M15 WMA45 Touch Tolerance')
+@param.int('d_max', default=24, min=6, max=50, title='M5 Pivot Max Lookback')
+@param.float('db_tol', default=3.0, min=0.5, title='M5 Double Bottom/Top Tol')
+@param.float('db_prom', default=4.0, min=1.0, title='M5 Double Bottom/Top Prominence')
+@level(50.0, line_color=color.rgba(158, 158, 158, 0.50), title='Midline 50')
+@band(40.0, 60.0, fill_color=color.rgba(100, 181, 246, 0.08), line_color=color.rgba(100, 181, 246, 0.25), title='Trend Buffer 40-60')
+@band(30.0, 70.0, fill_color=color.rgba(158, 158, 158, 0.04), line_color=color.rgba(158, 158, 158, 0.20), title='Extreme Range 30-70')
+@plot.line('r_ln', title='RSI 14', color=color.rgba(255, 255, 255, 0.95), line_width=1)
+@plot.line('e_ln', title='EMA 9 (on RSI)', color=color.rgba(0, 229, 255, 0.90), line_width=1)
+@plot.line('w_ln', title='WMA 45 (on RSI)', color=color.rgba(255, 179, 0, 0.95), line_width=2)
+@plot.line('c_up', title='HTF Bull + M15 Wait Zone (45)', color=color.rgba(0, 230, 118, 0.65), line_width=2)
+@plot.line('c_dn', title='HTF Bear + M15 Wait Zone (55)', color=color.rgba(255, 82, 82, 0.65), line_width=2)
+@plot.marker(title='M5 Bull Momentum Confirm', color=color.rgba(0, 230, 118, 1.0), style=plot.marker_style.LABEL, position=plot.marker_position.BELOW, size=3)
+@plot.marker(title='M5 Bear Momentum Confirm', color=color.rgba(255, 82, 82, 1.0), style=plot.marker_style.LABEL, position=plot.marker_position.ABOVE, size=3)
+class Main(MainContext):
+    def __init__(self, strict_htf: bool, min_slp: float, tangle_sp: float, w45_tol: float, d_max: int, db_tol: float, db_prom: float):
+        self.strict_htf = strict_htf; self.min_slp = min_slp; self.tangle_sp = tangle_sp; self.w45_tol = w45_tol
+        self.d_max = d_max; self.db_tol = db_tol; self.db_prom = db_prom
+        self.r4, self.e4, self.w4, self.s4 = self.calc_on(HtfPulse, time_frame=TimeFrame.from_str('4h'))
+        self.r1, self.e1, self.w1, self.s1 = self.calc_on(HtfPulse, time_frame=TimeFrame.from_str('1h'))
+        self.r15, self.e15, self.w15, self.s15 = self.calc_on(HtfPulse, time_frame=TimeFrame.from_str('15m'))
+    def calc(self):
+        latch_up = Var[bool].new(False); latch_dn = Var[bool].new(False)
+        lock_u_bar = Var[int].new(-1); lock_d_bar = Var[int].new(-1)
+        r = Rsi.new(self.close, 14); e9 = Ema.new(r, 9); w45 = Wma.new(r, 45)
+        if math.isnan(self.w4[1]) or math.isnan(self.w1[1]) or math.isnan(self.w15[4]) or math.isnan(r[self.d_max + 9]):
+            return r[0], e9[0], w45[0], math.nan, math.nan, plot.Marker(math.nan, text='▲', offset=-1), plot.Marker(math.nan, text='▼', offset=-1)
+        sp4 = max(self.r4[1], max(self.e4[1], self.w4[1])) - min(self.r4[1], min(self.e4[1], self.w4[1]))
+        sp1 = max(self.r1[1], max(self.e1[1], self.w1[1])) - min(self.r1[1], min(self.e1[1], self.w1[1]))
+        b4_up = self.r4[1] > self.w4[1] and self.e4[1] > self.w4[1] and self.s4[1] >= self.min_slp and sp4 >= self.tangle_sp
+        b4_dn = self.r4[1] < self.w4[1] and self.e4[1] < self.w4[1] and self.s4[1] <= -self.min_slp and sp4 >= self.tangle_sp
+        b1_up = ((self.r1[1] > self.w1[1]) if self.strict_htf else True) and self.e1[1] >= self.w1[1] and self.s1[1] >= self.min_slp and sp1 >= self.tangle_sp
+        b1_dn = ((self.r1[1] < self.w1[1]) if self.strict_htf else True) and self.e1[1] <= self.w1[1] and self.s1[1] <= -self.min_slp and sp1 >= self.tangle_sp
+        m15_up = (((40.0 <= self.r15[1] and self.r15[1] <= 50.0) or abs(self.r15[1] - self.w15[1]) <= self.w45_tol or (40.0 <= self.r15[4] and self.r15[4] <= 50.0) or abs(self.r15[4] - self.w15[4]) <= self.w45_tol) and (38.0 <= self.r15[1] and self.r15[1] < 70.0))
+        m15_dn = (((50.0 <= self.r15[1] and self.r15[1] <= 60.0) or abs(self.r15[1] - self.w15[1]) <= self.w45_tol or (50.0 <= self.r15[4] and self.r15[4] <= 60.0) or abs(self.r15[4] - self.w15[4]) <= self.w45_tol) and (30.0 < self.r15[1] and self.r15[1] <= 62.0))
+        if (b4_dn and b1_dn) or (self.r15[1] >= 55.0 and r[1] >= 60.0) or self.r15[1] < 35.0:
+            latch_up.set(False)
+        if (b4_up and b1_up) or (self.r15[1] <= 45.0 and r[1] <= 40.0) or self.r15[1] > 65.0:
+            latch_dn.set(False)
+        kl2_r = 0; kl1_r = 0; kh2_r = 0; kh1_r = 0; mid_hi = -1.0; mid_lo = 101.0; used_l = False; used_h = False
+        for k in range(2, self.d_max + 8):
+            r_pl = r[k] < r[k - 1] and r[k] <= r[k + 1] and r[k] < r[k + 2]
+            if kl2_r == 0:
+                if r_pl and k <= 7 and not used_l:
+                    kl2_r = k
+                if r[k] > e9[k] and r[k + 1] <= e9[k + 1]:
+                    used_l = True
+            elif kl1_r == 0:
+                if r_pl:
+                    kl1_r = k
+                else:
+                    mid_hi = max(mid_hi, r[k])
+            r_ph = r[k] > r[k - 1] and r[k] >= r[k + 1] and r[k] > r[k + 2]
+            if kh2_r == 0:
+                if r_ph and k <= 7 and not used_h:
+                    kh2_r = k
+                if r[k] < e9[k] and r[k + 1] >= e9[k + 1]:
+                    used_h = True
+            elif kh1_r == 0:
+                if r_ph:
+                    kh1_r = k
+                else:
+                    mid_lo = min(mid_lo, r[k])
+        v_lo = kl1_r > 0 and 3 <= (kl1_r - kl2_r) and (kl1_r - kl2_r) <= self.d_max and r[1] >= r[kl2_r]
+        v_hi = kh1_r > 0 and 3 <= (kh1_r - kh2_r) and (kh1_r - kh2_r) <= self.d_max and r[1] <= r[kh2_r]
+        m5_bull = v_lo and ((min(self.low[kl2_r], self.low[kl2_r + 1]) < min(self.low[kl1_r], self.low[kl1_r + 1]) and r[kl2_r] > r[kl1_r]) or (min(self.low[kl2_r], self.low[kl2_r + 1]) > min(self.low[kl1_r], self.low[kl1_r + 1]) and r[kl2_r] < r[kl1_r]) or (abs(r[kl2_r] - r[kl1_r]) <= self.db_tol and (mid_hi - max(r[kl2_r], r[kl1_r])) >= self.db_prom)) and r[1] > e9[1] and r[2] <= e9[2]
+        m5_bear = v_hi and ((max(self.high[kh2_r], self.high[kh2_r + 1]) > max(self.high[kh1_r], self.high[kh1_r + 1]) and r[kh2_r] < r[kh1_r]) or (max(self.high[kh2_r], self.high[kh2_r + 1]) < max(self.high[kh1_r], self.high[kh1_r + 1]) and r[kh2_r] > r[kh1_r]) or (abs(r[kh2_r] - r[kh1_r]) <= self.db_tol and (min(r[kh2_r], r[kh1_r]) - mid_lo) >= self.db_prom)) and r[1] < e9[1] and r[2] >= e9[2]
+        ctx_u = 45.0 if (b4_up and b1_up and m15_up) else math.nan
+        ctx_d = 55.0 if (b4_dn and b1_dn and m15_dn) else math.nan
+        fire_u = (not latch_up.get()) and (self.bar_index - kl2_r > lock_u_bar.get()) and m5_bull
+        fire_d = (not latch_dn.get()) and (self.bar_index - kh2_r > lock_d_bar.get()) and m5_bear
+        if fire_u:
+            latch_up.set(True)
+            lock_u_bar.set(self.bar_index)
+        if fire_d:
+            latch_dn.set(True)
+            lock_d_bar.set(self.bar_index)
+        return r[0], e9[0], w45[0], ctx_u, ctx_d, plot.Marker(r[1] if fire_u else math.nan, text='▲', offset=-1), plot.Marker(r[1] if fire_d else math.nan, text='▼', offset=-1)

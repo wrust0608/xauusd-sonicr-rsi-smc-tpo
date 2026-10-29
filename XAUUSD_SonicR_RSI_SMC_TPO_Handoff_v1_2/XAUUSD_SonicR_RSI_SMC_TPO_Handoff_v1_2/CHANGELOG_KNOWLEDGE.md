@@ -1,5 +1,18 @@
 # Knowledge-base changelog
 
+## v2.0.0 — 2026-10-29 (Phase 3 Runtime Resolution, MT5 Migration & Final Management Review)
+- Resolved all 8 TakeProfit Indie v5 compiler and runtime exceptions (E1 to E8: color.rgba, chained comparison unrolling, scalar assignments, Var in calc(), indented block enforcement, and NaN short-circuit guards).
+- Confirmed SonicR_Setup_Overlay.indie (123 lines) compiles and runs cleanly on Exness Terminal Web with 0 errors.
+- Discovered and addressed Exness Web Terminal constraint (single custom indicator limit).
+- Migrated the complete 4-indicator suite to native 64-bit MQL5 on MetaTrader 5:
+  1. SonicR_Setup_Overlay.mq5 -> compiled to SonicR_Setup_Overlay.ex5 (0 errors, 0 warnings).
+  2. RSI_Trend_Pulse_Pane.mq5 -> compiled to RSI_Trend_Pulse_Pane.ex5 (0 errors, 0 warnings).
+  3. SMC_MarketStructure_Overlay.mq5 -> compiled to SMC_MarketStructure_Overlay.ex5 (0 errors, 0 warnings).
+  4. TPO_Session_Profile.mq5 -> compiled to TPO_Session_Profile.ex5 (0 errors, 0 warnings).
+- Deployed all .mq5 and .ex5 files directly into user's MT5 directory (MQL5/Indicators/XAUUSD_Suite/).
+- Created unified 1-click chart template XAUUSD_SonicR_System.tpl in MT5 Templates directory.
+- Delivered exhaustive MANAGEMENT_REVIEW_AND_TECHNICAL_RECONCILIATION_REPORT.md with 5 quality states, error ledger, mathematical cross-reconciliation, and SHA-256 cryptographic proofs.
+
 ## v1.2.5 — 2026-10-29 (Phase 0 GAP-03 Timeframe Grouping Consistency — Release Candidate 5)
 - Corrected the stale wording in `learning_records/KNOWLEDGE_GAPS.md` §GAP-03: `sources.Tpo()` groups the selected session types into a profile according to the requested timeframe (e.g. `TimeFrame.D1` is daily; higher timeframes can yield weekly/monthly profiles), rather than always producing a daily profile.
 - Preserved the limitation that timeframe-based native grouping does not automatically implement the user's custom Vietnamese S1/S2/S3 sessions; Exness hosted-runtime support remains `RUNTIME_REQUIRED`.
