@@ -79,12 +79,21 @@ input bool     InpFilterStructure   = true;        // Filter: Align with Market 
 input double   InpAtrSlMultiplier   = 1.5;         // Dynamic SL ATR Multiplier (1.5x ATR)
 input double   InpAtrTpMultiplier   = 3.0;         // Dynamic TP ATR Multiplier (3.0x ATR = 1:2 RR)
 
-input group "=== 4. Visual Dashboard & HUD ==="
+input group "=== 4. Price Action Wick Rejection (Bắt Râu) Settings ==="
+input bool     InpEnableWickRejection = true;          // Enable Wick Rejection Signals (Bắt Râu)
+input double   InpMinWickRatio        = 0.35;          // Min Wick Ratio (35% of Candle Range)
+input double   InpMinCandleRangePts   = 1.50;          // Min Candle Range in Points ($1.50 on Gold)
+input bool     InpRequireKeyZone      = true;          // Require Touch of Dragon EMA 34 / 89 / 200 / Round
+input color    InpBullWickColor       = clrSpringGreen;// Bullish Wick Rejection Color
+input color    InpBearWickColor       = clrTomato;     // Bearish Wick Rejection Color
+input bool     InpShowWickTags        = true;          // Show Text Tag at Wick Tip
+
+input group "=== 5. Visual Dashboard & HUD ==="
 input bool     InpShowHUD        = true;        // Show On-Chart Information HUD
 input int      InpHUDCorner      = 1;           // HUD Corner (1 = Top Right, 0 = Top Left)
 input color    InpHUDColor       = clrWhite;    // HUD Text Color
 
-input group "=== 5. Multi-Channel Alert Settings ==="
+input group "=== 6. Multi-Channel Alert Settings ==="
 input bool     InpEnablePopup    = false;       // Enable Pop-up Alert
 input bool     InpEnableSound    = true;        // Enable Sound Alert
 input bool     InpEnablePush     = false;       // Enable Push Notification (Phone)
@@ -118,7 +127,11 @@ int      lock_d_bar;
 double   lock_ph;
 double   lock_pl;
 datetime lastAlertTime;
+datetime lastWickAlertTime = 0;
 string   prefix;
+string   g_lastWickRejStatus = "SCANNING FOR WICK...";
+double   g_lastWickSL = 0.0;
+double   g_lastWickTP = 0.0;
 
 //+------------------------------------------------------------------+
 //| Custom indicator initialization function                         |
@@ -255,8 +268,8 @@ void RenderHUD(bool htf_up, bool htf_dn, bool m15_up, bool m15_dn, double distDr
 
    int startX = 15;
    int startY = 15;
-   int width  = 210;
-   int height = 104;
+   int width  = 215;
+   int height = 120;
 
    // HUD Background Box
    string bgName = prefix + "BG";
@@ -274,15 +287,26 @@ void RenderHUD(bool htf_up, bool htf_dn, bool m15_up, bool m15_dn, double distDr
    ObjectSetInteger(0, bgName, OBJPROP_XSIZE, width);
    ObjectSetInteger(0, bgName, OBJPROP_YSIZE, height);
 
-   string lines[6];
+   string lines[7];
    lines[0] = "SONIC R XAUUSD (M5)";
    lines[1] = StringFormat("H4 Trend : %s", htf_up ? "BULLISH (UP)" : (htf_dn ? "BEARISH (DOWN)" : "NEUTRAL/TANGLE"));
    lines[2] = StringFormat("M15 Wait : %s", m15_up ? "BUY ZONE (40-50)" : (m15_dn ? "SELL ZONE (50-60)" : "NO SETUP"));
    lines[3] = StringFormat("M5 Wave  : %s", waveStatus);
    lines[4] = StringFormat("Dist Dragon: %.2f pts", distDragon);
-   lines[5] = StringFormat("Dyn SL/TP : $%.2f / $%.2f", InpAtrSlMultiplier * atrVal, InpAtrTpMultiplier * atrVal);
+   lines[5] = StringFormat("Rej Radar: %s", g_lastWickRejStatus);
+   lines[6] = (g_lastWickSL > 0.0) ? StringFormat("Wick SL/TP: $%.2f / $%.2f", g_lastWickSL, g_lastWickTP)
+                                   : StringFormat("Dyn SL/TP : $%.2f / $%.2f", InpAtrSlMultiplier * atrVal, InpAtrTpMultiplier * atrVal);
 
-   for(int i = 0; i < 6; i++)
+   color lineClrs[7];
+   lineClrs[0] = clrGold;
+   lineClrs[1] = htf_up ? clrSpringGreen : (htf_dn ? clrTomato : clrYellow);
+   lineClrs[2] = (m15_up || m15_dn) ? clrGold : clrLightSlateGray;
+   lineClrs[3] = (StringFind(waveStatus, "BULL") >= 0) ? clrSpringGreen : ((StringFind(waveStatus, "BEAR") >= 0) ? clrTomato : clrCyan);
+   lineClrs[4] = clrSilver;
+   lineClrs[5] = (StringFind(g_lastWickRejStatus, "⮟") >= 0) ? clrTomato : ((StringFind(g_lastWickRejStatus, "⮝") >= 0) ? clrSpringGreen : clrYellow);
+   lineClrs[6] = (g_lastWickSL > 0.0) ? clrCyan : clrSilver;
+
+   for(int i = 0; i < 7; i++)
    {
       string lblName = prefix + IntegerToString(i);
       if(ObjectFind(0, lblName) < 0)
@@ -296,14 +320,8 @@ void RenderHUD(bool htf_up, bool htf_dn, bool m15_up, bool m15_dn, double distDr
       ObjectSetInteger(0, lblName, OBJPROP_ANCHOR, ANCHOR_LEFT_UPPER);
       ObjectSetInteger(0, lblName, OBJPROP_XDISTANCE, startX + width - 10);
       ObjectSetInteger(0, lblName, OBJPROP_YDISTANCE, startY + 8 + (i * 15));
-      color clr = InpHUDColor;
-      if(i == 0) clr = clrGold;
-      if(i == 1) clr = htf_up ? clrSpringGreen : (htf_dn ? clrTomato : clrYellow);
-      if(i == 2) clr = (m15_up || m15_dn) ? clrGold : clrLightSlateGray;
-      if(i == 3) clr = (StringFind(waveStatus, "BULL") >= 0) ? clrSpringGreen : ((StringFind(waveStatus, "BEAR") >= 0) ? clrTomato : clrCyan);
-      if(i == 5) clr = clrSilver;
       ObjectSetString(0, lblName, OBJPROP_TEXT, lines[i]);
-      ObjectSetInteger(0, lblName, OBJPROP_COLOR, clr);
+      ObjectSetInteger(0, lblName, OBJPROP_COLOR, lineClrs[i]);
    }
 }
 
@@ -412,6 +430,153 @@ int OnCalculate(const int rates_total,
 
       BufferSignalBuy[i]  = EMPTY_VALUE;
       BufferSignalSell[i] = EMPTY_VALUE;
+
+      // 2b. Price Action Wick Rejection (Bắt Râu tại Cản)
+      if(InpEnableWickRejection && i < maxAvailable - 1)
+      {
+         double cRange = high[i] - low[i];
+         if(cRange >= InpMinCandleRangePts)
+         {
+            double uWick = high[i] - MathMax(open[i], close[i]);
+            double lWick = MathMin(open[i], close[i]) - low[i];
+            double uRatio = uWick / cRange;
+            double lRatio = lWick / cRange;
+
+            double body = MathAbs(close[i] - open[i]);
+
+            // Bearish Wick Rejection (Rút râu trên tại cản)
+            if(uRatio >= InpMinWickRatio && uWick >= 1.2 * body && (close[i] < open[i] || (close[i] - low[i]) / cRange <= 0.40))
+            {
+               // Anti-cluster: Skip if previous bar already fired and current bar didn't make a higher wick
+               if(BufferSignalSell[i + 1] != EMPTY_VALUE && high[i] <= high[i + 1])
+               {
+                  // Skip repetitive signal in chop
+               }
+               else
+               {
+               double tol = MathMax(1.0, 0.40 * atr[i]);
+               string zName = "";
+               if(high[i] >= e89[i] - tol && close[i] <= e89[i] + tol)
+                  zName = "EMA 89";
+               else if(high[i] >= e200[i] - tol && close[i] <= e200[i] + tol)
+                  zName = "EMA 200";
+               else if(high[i] >= dh[i] - tol && close[i] <= dh[i] + tol)
+                  zName = "Dragon High";
+               else if(high[i] >= dc[i] - tol && close[i] <= dc[i] + tol)
+                  zName = "EMA 34 Close";
+               else if(high[i] >= dl[i] - tol && close[i] <= dl[i] + tol)
+                  zName = "Dragon Low";
+               else if(!InpRequireKeyZone)
+                  zName = "Upper Wick";
+
+                  if(zName != "")
+                  {
+                     BufferSignalSell[i] = high[i] + (0.25 * atr[i]);
+
+                     if(i <= 35 && InpShowWickTags)
+                     {
+                        string lblName = prefix + "Wick_Bear_" + TimeToString(time[i]);
+                        if(ObjectFind(0, lblName) < 0)
+                        {
+                           ObjectCreate(0, lblName, OBJ_TEXT, 0, time[i], high[i] + (0.35 * _Point * 10));
+                           ObjectSetString(0, lblName, OBJPROP_TEXT, StringFormat("⮟ %s (%.0f%%)", zName, uRatio * 100.0));
+                           ObjectSetInteger(0, lblName, OBJPROP_COLOR, InpBearWickColor);
+                           ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI Semibold");
+                           ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 7);
+                           ObjectSetInteger(0, lblName, OBJPROP_ANCHOR, ANCHOR_LOWER);
+                           ObjectSetInteger(0, lblName, OBJPROP_BACK, true);
+                        }
+                     }
+
+                     if(i == 1)
+                     {
+                        g_lastWickRejStatus = StringFormat("⮟ %s (%.0f%%)", zName, uRatio * 100.0);
+                        double rk = (high[1] + 0.30) - close[1];
+                        g_lastWickSL = high[1] + 0.30;
+                        g_lastWickTP = close[1] - (2.0 * rk);
+
+                        if(time[1] != lastWickAlertTime)
+                        {
+                           lastWickAlertTime = time[1];
+                           string msg = StringFormat("[BẮT RÂU ALERT] %s M5: ⮟ Bearish Wick Rejection (%.0f%%) at %s | Price: %.2f | SL: %.2f [+$%.2f] | TP: %.2f [-$%.2f] (RR 1:2)",
+                                                     _Symbol, uRatio * 100.0, zName, close[1], g_lastWickSL, rk, g_lastWickTP, 2.0 * rk);
+                           if(!MQLInfoInteger(MQL_TESTER) && InpEnablePopup) Alert(msg);
+                           if(InpEnableSound) PlaySound("alert.wav");
+                           if(InpEnablePush)  SendNotification(msg);
+                           if(InpEnableEmail) SendMail("Bắt Râu Rejection Alert", msg);
+                        }
+                     }
+                  }
+               }
+            }
+
+            // Bullish Wick Rejection (Rút râu dưới tại cản)
+            if(lRatio >= InpMinWickRatio && lWick >= 1.2 * body && (close[i] > open[i] || (high[i] - close[i]) / cRange <= 0.40))
+            {
+               // Anti-cluster: Skip if previous bar already fired and current bar didn't make a lower wick
+               if(BufferSignalBuy[i + 1] != EMPTY_VALUE && low[i] >= low[i + 1])
+               {
+                  // Skip repetitive signal in chop
+               }
+               else
+               {
+               double tol = MathMax(1.0, 0.40 * atr[i]);
+               string zName = "";
+               if(low[i] <= e89[i] + tol && close[i] >= e89[i] - tol)
+                  zName = "EMA 89";
+               else if(low[i] <= e200[i] + tol && close[i] >= e200[i] - tol)
+                  zName = "EMA 200";
+               else if(low[i] <= dl[i] + tol && close[i] >= dl[i] - tol)
+                  zName = "Dragon Low";
+               else if(low[i] <= dc[i] + tol && close[i] >= dc[i] - tol)
+                  zName = "EMA 34 Close";
+               else if(low[i] <= dh[i] + tol && close[i] >= dh[i] - tol)
+                  zName = "Dragon High";
+               else if(!InpRequireKeyZone)
+                  zName = "Lower Wick";
+
+                  if(zName != "")
+                  {
+                     BufferSignalBuy[i] = low[i] - (0.25 * atr[i]);
+
+                     if(i <= 35 && InpShowWickTags)
+                     {
+                        string lblName = prefix + "Wick_Bull_" + TimeToString(time[i]);
+                        if(ObjectFind(0, lblName) < 0)
+                        {
+                           ObjectCreate(0, lblName, OBJ_TEXT, 0, time[i], low[i] - (0.35 * _Point * 10));
+                           ObjectSetString(0, lblName, OBJPROP_TEXT, StringFormat("⮝ %s (%.0f%%)", zName, lRatio * 100.0));
+                           ObjectSetInteger(0, lblName, OBJPROP_COLOR, InpBullWickColor);
+                           ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI Semibold");
+                           ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 7);
+                           ObjectSetInteger(0, lblName, OBJPROP_ANCHOR, ANCHOR_UPPER);
+                           ObjectSetInteger(0, lblName, OBJPROP_BACK, true);
+                        }
+                     }
+
+                     if(i == 1)
+                     {
+                        g_lastWickRejStatus = StringFormat("⮝ %s (%.0f%%)", zName, lRatio * 100.0);
+                        double rk = close[1] - (low[1] - 0.30);
+                        g_lastWickSL = low[1] - 0.30;
+                        g_lastWickTP = close[1] + (2.0 * rk);
+
+                        if(time[1] != lastWickAlertTime)
+                        {
+                           lastWickAlertTime = time[1];
+                           string msg = StringFormat("[BẮT RÂU ALERT] %s M5: ⮝ Bullish Wick Rejection (%.0f%%) at %s | Price: %.2f | SL: %.2f [-$%.2f] | TP: %.2f [+$%.2f] (RR 1:2)",
+                                                     _Symbol, lRatio * 100.0, zName, close[1], g_lastWickSL, rk, g_lastWickTP, 2.0 * rk);
+                           if(!MQLInfoInteger(MQL_TESTER) && InpEnablePopup) Alert(msg);
+                           if(InpEnableSound) PlaySound("alert.wav");
+                           if(InpEnablePush)  SendNotification(msg);
+                           if(InpEnableEmail) SendMail("Bắt Râu Rejection Alert", msg);
+                        }
+                     }
+                  }
+               }
+            }
+         }
+      }
 
       // Track M5 Pivot Highs & Lows
       int kh = 0, kl = 0, kh_o = 0, kl_o = 0, k_hl = 0, k_lh = 0;
