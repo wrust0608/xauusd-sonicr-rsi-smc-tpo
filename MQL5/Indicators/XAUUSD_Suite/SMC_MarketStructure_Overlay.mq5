@@ -37,6 +37,8 @@
 
 //--- Input Parameters
 input group "=== 1. Major Swing Structure Settings ==="
+input bool     InpShowSwingDots    = false;         // Show Swing High/Low Arrow Dots on Candles
+input bool     InpDrawDealingBoxes = false;         // Draw Giant Premium/Discount Bounding Boxes
 input int      InpMajorLookback    = 8;             // Major Swing Lookback (bars left/right)
 input int      InpMaxHistoryBars   = 1200;          // Max History Bars to Analyze
 input bool     InpShowMajorBOS     = true;          // Show Major BOS (Break of Structure)
@@ -122,10 +124,20 @@ int OnInit()
    ArrayInitialize(BufferMinorHi, EMPTY_VALUE);
    ArrayInitialize(BufferMinorLo, EMPTY_VALUE);
 
-   PlotIndexSetInteger(0, PLOT_ARROW, 159); // Large dot
-   PlotIndexSetInteger(1, PLOT_ARROW, 159);
-   PlotIndexSetInteger(2, PLOT_ARROW, 167); // Small diamond / dot
-   PlotIndexSetInteger(3, PLOT_ARROW, 167);
+   if(!InpShowSwingDots)
+   {
+      PlotIndexSetInteger(0, PLOT_DRAW_TYPE, DRAW_NONE);
+      PlotIndexSetInteger(1, PLOT_DRAW_TYPE, DRAW_NONE);
+      PlotIndexSetInteger(2, PLOT_DRAW_TYPE, DRAW_NONE);
+      PlotIndexSetInteger(3, PLOT_DRAW_TYPE, DRAW_NONE);
+   }
+   else
+   {
+      PlotIndexSetInteger(0, PLOT_ARROW, 159);
+      PlotIndexSetInteger(1, PLOT_ARROW, 159);
+      PlotIndexSetInteger(2, PLOT_DRAW_TYPE, DRAW_NONE);
+      PlotIndexSetInteger(3, PLOT_DRAW_TYPE, DRAW_NONE);
+   }
 
    PlotIndexSetDouble(0, PLOT_EMPTY_VALUE, EMPTY_VALUE);
    PlotIndexSetDouble(1, PLOT_EMPTY_VALUE, EMPTY_VALUE);
@@ -634,9 +646,16 @@ int OnCalculate(const int rates_total,
 
       if(InpShowPremDisc)
       {
-         // Dotted non-filled outline boxes (zero candle obstruction)
-         DrawBox("Prem_Box", rangeStart, activeHi, time[0], g_currentEqPrice, InpPremiumColor, false);
-         DrawBox("Disc_Box", rangeStart, g_currentEqPrice, time[0], activeLo, InpDiscountColor, false);
+         if(InpDrawDealingBoxes)
+         {
+            DrawBox("Prem_Box", rangeStart, activeHi, time[0], g_currentEqPrice, InpPremiumColor, false);
+            DrawBox("Disc_Box", rangeStart, g_currentEqPrice, time[0], activeLo, InpDiscountColor, false);
+         }
+         else
+         {
+            ObjectDelete(0, prefix + "Prem_Box");
+            ObjectDelete(0, prefix + "Disc_Box");
+         }
 
          // Equilibrium 50% Line
          string eqLineName = prefix + "Eq_Line";

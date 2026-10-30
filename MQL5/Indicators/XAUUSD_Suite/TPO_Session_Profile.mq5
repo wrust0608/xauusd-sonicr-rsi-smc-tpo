@@ -37,7 +37,8 @@ input group "=== 1. TPO Price Step & Profile Geometry ==="
 input double   InpRowHeight        = 0.50;          // TPO Price Row Height (Gold default = $0.50)
 input int      InpHistoryDays      = 5;             // Number of Days to Profile
 input double   InpValueAreaPct     = 70.0;          // Value Area Percentage (Standard = 70.0%)
-input bool     InpDrawHistogram    = true;          // Render TPO Distribution Histogram Bars
+input bool     InpDrawVABox        = false;         // Draw Session Value Area Frame Box
+input bool     InpDrawHistogram    = false;          // Render TPO Distribution Histogram Bars
 input int      InpMaxHistBarsWidth = 12;            // Max Bar Width for TPO Histogram (in candles)
 
 input group "=== 2. Session Definition (Vietnam Time Schedule) ==="
@@ -48,11 +49,11 @@ input bool     InpShowLondon       = true;          // Profile S2: London (15:00
 input bool     InpShowNY           = true;          // Profile S3: New York (20:00 - 05:59 VN)
 
 input group "=== 3. Initial Balance & Market Auction Anatomy ==="
-input bool     InpShowIB           = true;          // Show Initial Balance (IB 1st Hour)
+input bool     InpShowIB           = false;          // Show Initial Balance (IB 1st Hour)
 input color    InpIBColor          = clrDarkOrange; // Initial Balance Color
 input bool     InpShowSinglePrints = true;          // Highlight Single Prints (Unfinished Auction)
 input color    InpSinglePrintColor = clrAqua;       // Single Prints Highlight Color
-input bool     InpShowPoorExtremes = true;          // Detect Poor Highs / Poor Lows
+input bool     InpShowPoorExtremes = false;          // Detect Poor Highs / Poor Lows
 input color    InpPoorHighColor    = clrTomato;     // Poor High Label Color
 input color    InpPoorLowColor     = clrSpringGreen;// Poor Low Label Color
 
@@ -475,18 +476,25 @@ int OnCalculate(const int rates_total,
 
          // 1. Value Area Frame (Non-filled dashed boundary for clean chart)
          string vaBoxName = prefix + "VABox_" + sessionID;
-         if(ObjectFind(0, vaBoxName) < 0)
+         if(InpDrawVABox)
          {
-            ObjectCreate(0, vaBoxName, OBJ_RECTANGLE, 0, tStart, vah, tEnd, val);
-            ObjectSetInteger(0, vaBoxName, OBJPROP_COLOR, sessVAClr);
-            ObjectSetInteger(0, vaBoxName, OBJPROP_STYLE, STYLE_DASH);
-            ObjectSetInteger(0, vaBoxName, OBJPROP_WIDTH, 1);
-            ObjectSetInteger(0, vaBoxName, OBJPROP_FILL, false);
-            ObjectSetInteger(0, vaBoxName, OBJPROP_BACK, true);
+            if(ObjectFind(0, vaBoxName) < 0)
+            {
+               ObjectCreate(0, vaBoxName, OBJ_RECTANGLE, 0, tStart, vah, tEnd, val);
+               ObjectSetInteger(0, vaBoxName, OBJPROP_COLOR, sessVAClr);
+               ObjectSetInteger(0, vaBoxName, OBJPROP_STYLE, STYLE_DASH);
+               ObjectSetInteger(0, vaBoxName, OBJPROP_WIDTH, 1);
+               ObjectSetInteger(0, vaBoxName, OBJPROP_FILL, false);
+               ObjectSetInteger(0, vaBoxName, OBJPROP_BACK, true);
+            }
+            else
+            {
+               ObjectSetInteger(0, vaBoxName, OBJPROP_TIME, 1, tEnd);
+            }
          }
          else
          {
-            ObjectSetInteger(0, vaBoxName, OBJPROP_TIME, 1, tEnd);
+            ObjectDelete(0, vaBoxName);
          }
 
          // 2. POC Ray Line & Label

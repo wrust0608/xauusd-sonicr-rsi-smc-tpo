@@ -425,7 +425,7 @@ int OnCalculate(const int rates_total,
       for(int k = 1; k <= InpPivotLookback; k++)
       {
          int barIdx = i + k;
-         if(barIdx + 2 >= rates_total) break;
+         if(barIdx < 2 || barIdx + 2 >= rates_total) continue;
 
          bool is_ph = (high[barIdx] > high[barIdx + 1] && high[barIdx] > high[barIdx + 2] &&
                        high[barIdx] > high[barIdx - 1] && high[barIdx] > high[barIdx - 2]);
