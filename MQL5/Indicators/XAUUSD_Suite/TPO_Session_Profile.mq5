@@ -9,28 +9,7 @@
 #property description "XAUUSD Time Price Opportunity (TPO) Market Profile Suite: S1/S2/S3 VN Sessions, 70% Value Area, POC, Initial Balance, Clean HUD & Non-Cluttering Density"
 #property indicator_chart_window
 #property indicator_buffers 3
-#property indicator_plots   3
-
-//--- Plot 1: POC (Point of Control)
-#property indicator_label1  "Session POC"
-#property indicator_type1   DRAW_LINE
-#property indicator_color1  clrMagenta
-#property indicator_style1  STYLE_SOLID
-#property indicator_width1  2
-
-//--- Plot 2: VAH (Value Area High)
-#property indicator_label2  "Session VAH"
-#property indicator_type2   DRAW_LINE
-#property indicator_color2  clrRoyalBlue
-#property indicator_style2  STYLE_DASH
-#property indicator_width2  1
-
-//--- Plot 3: VAL (Value Area Low)
-#property indicator_label3  "Session VAL"
-#property indicator_type3   DRAW_LINE
-#property indicator_color2  clrRoyalBlue
-#property indicator_style3  STYLE_DASH
-#property indicator_width3  1
+#property indicator_plots   0
 
 //--- Input Parameters
 input group "=== 1. TPO Price Step & Profile Geometry ==="
@@ -97,13 +76,9 @@ string g_activeAuctionState = "Inside Value";
 //+------------------------------------------------------------------+
 int OnInit()
 {
-   SetIndexBuffer(0, BufferPOC, INDICATOR_DATA);
-   SetIndexBuffer(1, BufferVAH, INDICATOR_DATA);
-   SetIndexBuffer(2, BufferVAL, INDICATOR_DATA);
-
-   PlotIndexSetDouble(0, PLOT_EMPTY_VALUE, EMPTY_VALUE);
-   PlotIndexSetDouble(1, PLOT_EMPTY_VALUE, EMPTY_VALUE);
-   PlotIndexSetDouble(2, PLOT_EMPTY_VALUE, EMPTY_VALUE);
+   SetIndexBuffer(0, BufferPOC, INDICATOR_CALCULATIONS);
+   SetIndexBuffer(1, BufferVAH, INDICATOR_CALCULATIONS);
+   SetIndexBuffer(2, BufferVAL, INDICATOR_CALCULATIONS);
 
    prefix = "TPO_" + _Symbol + "_";
    ObjectsDeleteAll(0, prefix);
@@ -521,9 +496,9 @@ int OnCalculate(const int rates_total,
          }
 
          // 3. Initial Balance Box
+         string ibBoxName = prefix + "IB_" + sessionID;
          if(InpShowIB && ibHigh > 0 && ibLow < 1000000.0)
          {
-            string ibBoxName = prefix + "IB_" + sessionID;
             datetime tIBEnd = time[ibEndIdx];
             if(ObjectFind(0, ibBoxName) < 0)
             {
@@ -534,8 +509,14 @@ int OnCalculate(const int rates_total,
                ObjectSetInteger(0, ibBoxName, OBJPROP_FILL, false);
             }
          }
+         else
+         {
+            ObjectDelete(0, ibBoxName);
+         }
 
          // 4. Poor High & Poor Low Markers
+         string phName = prefix + "PoorHi_" + sessionID;
+         string plName = prefix + "PoorLo_" + sessionID;
          if(InpShowPoorExtremes && numBins > 2)
          {
             int topBin = numBins - 2;
@@ -545,7 +526,6 @@ int OnCalculate(const int rates_total,
 
             if(tpoCounts[topBin] >= 2)
             {
-               string phName = prefix + "PoorHi_" + sessionID;
                if(ObjectFind(0, phName) < 0)
                {
                   ObjectCreate(0, phName, OBJ_TEXT, 0, tStart + (datetime)((tEnd - tStart) / 2), maxP);
@@ -556,10 +536,8 @@ int OnCalculate(const int rates_total,
                   ObjectSetInteger(0, phName, OBJPROP_ANCHOR, ANCHOR_LOWER);
                }
             }
-
             if(tpoCounts[btmBin] >= 2)
             {
-               string plName = prefix + "PoorLo_" + sessionID;
                if(ObjectFind(0, plName) < 0)
                {
                   ObjectCreate(0, plName, OBJ_TEXT, 0, tStart + (datetime)((tEnd - tStart) / 2), minP);
@@ -570,6 +548,11 @@ int OnCalculate(const int rates_total,
                   ObjectSetInteger(0, plName, OBJPROP_ANCHOR, ANCHOR_UPPER);
                }
             }
+         }
+         else
+         {
+            ObjectDelete(0, phName);
+            ObjectDelete(0, plName);
          }
 
          // 5. TPO Histogram Density (Rendered only for recent 2 sessions to avoid chart clutter)

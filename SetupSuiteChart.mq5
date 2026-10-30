@@ -24,6 +24,8 @@ void OnStart()
    ChartSetInteger(chartId, CHART_SHOW_VOLUMES, CHART_VOLUME_HIDE); // Zero Volume Bars
    ChartSetInteger(chartId, CHART_SHOW_PERIOD_SEP, false);
    ChartSetInteger(chartId, CHART_SHOW_OHLC, false);
+   ChartSetInteger(chartId, CHART_SHOW_TICKER, false);
+   ChartSetInteger(chartId, CHART_SHOW_OBJECT_DESCR, false);
    ChartSetInteger(chartId, CHART_SHOW_ONE_CLICK, false);
    ChartSetInteger(chartId, CHART_AUTOSCROLL, true);
    ChartSetInteger(chartId, CHART_SHIFT, true);

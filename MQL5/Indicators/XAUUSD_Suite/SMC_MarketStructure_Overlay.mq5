@@ -9,31 +9,7 @@
 #property description "XAUUSD Smart Money Concepts Suite: Major & Internal Structure (BOS/CHoCH), Order Blocks, FVGs, EQH/EQL, Liquidity Sweeps, Premium/Discount & Clean HUD"
 #property indicator_chart_window
 #property indicator_buffers 4
-#property indicator_plots   4
-
-//--- Plot 1: Major Swing High
-#property indicator_label1  "Major Swing High"
-#property indicator_type1   DRAW_ARROW
-#property indicator_color1  clrTomato
-#property indicator_width1  2
-
-//--- Plot 2: Major Swing Low
-#property indicator_label2  "Major Swing Low"
-#property indicator_type2   DRAW_ARROW
-#property indicator_color2  clrMediumSeaGreen
-#property indicator_width2  2
-
-//--- Plot 3: Internal Swing High
-#property indicator_label3  "Internal Swing High"
-#property indicator_type3   DRAW_ARROW
-#property indicator_color3  clrOrangeRed
-#property indicator_width3  1
-
-//--- Plot 4: Internal Swing Low
-#property indicator_label4  "Internal Swing Low"
-#property indicator_type4   DRAW_ARROW
-#property indicator_color4  clrLimeGreen
-#property indicator_width4  1
+#property indicator_plots   0
 
 //--- Input Parameters
 input group "=== 1. Major Swing Structure Settings ==="
@@ -114,35 +90,15 @@ string g_currentZone = "Equilibrium";
 //+------------------------------------------------------------------+
 int OnInit()
 {
-   SetIndexBuffer(0, BufferMajorHi, INDICATOR_DATA);
-   SetIndexBuffer(1, BufferMajorLo, INDICATOR_DATA);
-   SetIndexBuffer(2, BufferMinorHi, INDICATOR_DATA);
-   SetIndexBuffer(3, BufferMinorLo, INDICATOR_DATA);
+   SetIndexBuffer(0, BufferMajorHi, INDICATOR_CALCULATIONS);
+   SetIndexBuffer(1, BufferMajorLo, INDICATOR_CALCULATIONS);
+   SetIndexBuffer(2, BufferMinorHi, INDICATOR_CALCULATIONS);
+   SetIndexBuffer(3, BufferMinorLo, INDICATOR_CALCULATIONS);
 
    ArrayInitialize(BufferMajorHi, EMPTY_VALUE);
    ArrayInitialize(BufferMajorLo, EMPTY_VALUE);
    ArrayInitialize(BufferMinorHi, EMPTY_VALUE);
    ArrayInitialize(BufferMinorLo, EMPTY_VALUE);
-
-   if(!InpShowSwingDots)
-   {
-      PlotIndexSetInteger(0, PLOT_DRAW_TYPE, DRAW_NONE);
-      PlotIndexSetInteger(1, PLOT_DRAW_TYPE, DRAW_NONE);
-      PlotIndexSetInteger(2, PLOT_DRAW_TYPE, DRAW_NONE);
-      PlotIndexSetInteger(3, PLOT_DRAW_TYPE, DRAW_NONE);
-   }
-   else
-   {
-      PlotIndexSetInteger(0, PLOT_ARROW, 159);
-      PlotIndexSetInteger(1, PLOT_ARROW, 159);
-      PlotIndexSetInteger(2, PLOT_DRAW_TYPE, DRAW_NONE);
-      PlotIndexSetInteger(3, PLOT_DRAW_TYPE, DRAW_NONE);
-   }
-
-   PlotIndexSetDouble(0, PLOT_EMPTY_VALUE, EMPTY_VALUE);
-   PlotIndexSetDouble(1, PLOT_EMPTY_VALUE, EMPTY_VALUE);
-   PlotIndexSetDouble(2, PLOT_EMPTY_VALUE, EMPTY_VALUE);
-   PlotIndexSetDouble(3, PLOT_EMPTY_VALUE, EMPTY_VALUE);
 
    prefix = "SMC_" + _Symbol + "_";
    ObjectsDeleteAll(0, prefix);
@@ -405,9 +361,16 @@ int OnCalculate(const int rates_total,
             {
                if(low[m] <= high[i]) { endT = time[m]; mitigated = true; break; }
             }
-            if(!mitigated) g_activeBullFVGCount++;
             string fvgName = StringFormat("FVG_Bull_%s", TimeToString(time[i - 1]));
-            DrawBox(fvgName, time[i], low[i - 2], endT, high[i], InpBullFVGColor, true);
+            if(!mitigated)
+            {
+               g_activeBullFVGCount++;
+               DrawBox(fvgName, time[i], low[i - 2], endT, high[i], InpBullFVGColor, true);
+            }
+            else
+            {
+               ObjectDelete(0, prefix + fvgName);
+            }
          }
 
          // Bearish FVG
@@ -419,9 +382,16 @@ int OnCalculate(const int rates_total,
             {
                if(high[m] >= low[i]) { endT = time[m]; mitigated = true; break; }
             }
-            if(!mitigated) g_activeBearFVGCount++;
             string fvgName = StringFormat("FVG_Bear_%s", TimeToString(time[i - 1]));
-            DrawBox(fvgName, time[i], low[i], endT, high[i - 2], InpBearFVGColor, true);
+            if(!mitigated)
+            {
+               g_activeBearFVGCount++;
+               DrawBox(fvgName, time[i], low[i], endT, high[i - 2], InpBearFVGColor, true);
+            }
+            else
+            {
+               ObjectDelete(0, prefix + fvgName);
+            }
          }
       }
    }

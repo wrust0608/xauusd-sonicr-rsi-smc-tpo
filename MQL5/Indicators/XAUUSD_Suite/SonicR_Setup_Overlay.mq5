@@ -9,7 +9,7 @@
 #property description "XAUUSD Sonic R Suite: Dragon Cloud, Trend 89, Macro 200, Swings, Round Numbers, Clean HUD & MTF Signals"
 #property indicator_chart_window
 #property indicator_buffers 12
-#property indicator_plots   11
+#property indicator_plots   7
 
 //--- Plot 1: Dragon Cloud High
 #property indicator_label1  "Dragon High"
@@ -46,45 +46,17 @@
 #property indicator_style5  STYLE_DASH
 #property indicator_width5  1
 
-//--- Plot 6: Ref Swing High
-#property indicator_label6  "Ref Swing High"
-#property indicator_type6   DRAW_LINE
-#property indicator_color6  clrTomato
-#property indicator_style6  STYLE_DOT
-#property indicator_width6  1
+//--- Plot 6: Bullish Setup Trigger
+#property indicator_label6  "Potential Bull Setup"
+#property indicator_type6   DRAW_ARROW
+#property indicator_color6  clrSpringGreen
+#property indicator_width6  2
 
-//--- Plot 7: Ref Swing Low
-#property indicator_label7  "Ref Swing Low"
-#property indicator_type7   DRAW_LINE
-#property indicator_color7  clrMediumSeaGreen
-#property indicator_style7  STYLE_DOT
-#property indicator_width7  1
-
-//--- Plot 8: Upper Round Level
-#property indicator_label8  "Upper Round Level"
-#property indicator_type8   DRAW_LINE
-#property indicator_color8  clrDimGray
-#property indicator_style8  STYLE_DOT
-#property indicator_width8  1
-
-//--- Plot 9: Lower Round Level
-#property indicator_label9  "Lower Round Level"
-#property indicator_type9   DRAW_LINE
-#property indicator_color9  clrDimGray
-#property indicator_style9  STYLE_DOT
-#property indicator_width9  1
-
-//--- Plot 10: Bullish Setup Trigger
-#property indicator_label10 "Potential Bull Setup"
-#property indicator_type10  DRAW_ARROW
-#property indicator_color10 clrSpringGreen
-#property indicator_width10 2
-
-//--- Plot 11: Bearish Setup Trigger
-#property indicator_label11 "Potential Bear Setup"
-#property indicator_type11  DRAW_ARROW
-#property indicator_color11 clrRed
-#property indicator_width11 2
+//--- Plot 7: Bearish Setup Trigger
+#property indicator_label7  "Potential Bear Setup"
+#property indicator_type7   DRAW_ARROW
+#property indicator_color7  clrRed
+#property indicator_width7  2
 
 //--- Input Parameters
 input group "=== 1. MTF Trend Confluence Settings ==="
@@ -152,21 +124,24 @@ int OnInit()
    SetIndexBuffer(2,  BufferDl,         INDICATOR_DATA);
    SetIndexBuffer(3,  BufferE89,        INDICATOR_DATA);
    SetIndexBuffer(4,  BufferE200,       INDICATOR_DATA);
-   SetIndexBuffer(5,  BufferSwingHi,    INDICATOR_DATA);
-   SetIndexBuffer(6,  BufferSwingLo,    INDICATOR_DATA);
-   SetIndexBuffer(7,  BufferRoundHi,    INDICATOR_DATA);
-   SetIndexBuffer(8,  BufferRoundLo,    INDICATOR_DATA);
-   SetIndexBuffer(9,  BufferSignalBuy,  INDICATOR_DATA);
-   SetIndexBuffer(10, BufferSignalSell, INDICATOR_DATA);
+   SetIndexBuffer(5,  BufferSignalBuy,  INDICATOR_DATA);
+   SetIndexBuffer(6,  BufferSignalSell, INDICATOR_DATA);
+   SetIndexBuffer(7,  BufferSwingHi,    INDICATOR_CALCULATIONS);
+   SetIndexBuffer(8,  BufferSwingLo,    INDICATOR_CALCULATIONS);
+   SetIndexBuffer(9,  BufferRoundHi,    INDICATOR_CALCULATIONS);
+   SetIndexBuffer(10, BufferRoundLo,    INDICATOR_CALCULATIONS);
    SetIndexBuffer(11, BufferCloud,      INDICATOR_CALCULATIONS);
 
-   PlotIndexSetInteger(9,  PLOT_ARROW, 233); // Wingdings Up Arrow
-   PlotIndexSetInteger(10, PLOT_ARROW, 234); // Wingdings Down Arrow
+   PlotIndexSetInteger(5,  PLOT_ARROW, 233); // Wingdings Up Arrow
+   PlotIndexSetInteger(6,  PLOT_ARROW, 234); // Wingdings Down Arrow
 
-   for(int i = 0; i < 11; i++)
+   for(int i = 0; i < 7; i++)
    {
       PlotIndexSetDouble(i, PLOT_EMPTY_VALUE, EMPTY_VALUE);
    }
+
+   prefix        = "SONIC_HUD_";
+   ObjectsDeleteAll(0, prefix);
 
    handleEma34High  = iMA(_Symbol, _Period, 34, 0, MODE_EMA, PRICE_HIGH);
    handleEma34Close = iMA(_Symbol, _Period, 34, 0, MODE_EMA, PRICE_CLOSE);
@@ -188,7 +163,6 @@ int OnInit()
    lock_ph       = EMPTY_VALUE;
    lock_pl       = EMPTY_VALUE;
    lastAlertTime = 0;
-   prefix        = "SONIC_HUD_";
 
    IndicatorSetString(INDICATOR_SHORTNAME, "Sonic R Overlay Unleashed (" + _Symbol + ")");
    return(INIT_SUCCEEDED);
