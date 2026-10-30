@@ -495,6 +495,66 @@ int OnCalculate(const int rates_total,
             ObjectSetInteger(0, pocLineName + "_lbl", OBJPROP_TIME, tEnd);
          }
 
+         // 2b. Value Area High (VAH - 70%) Ray Line & Label
+         string vahLineName = prefix + "VAH_" + sessionID;
+         if(vah > 0)
+         {
+            if(ObjectFind(0, vahLineName) < 0)
+            {
+               ObjectCreate(0, vahLineName, OBJ_TREND, 0, tStart, vah, tEnd, vah);
+               ObjectSetInteger(0, vahLineName, OBJPROP_COLOR, sessVAClr);
+               ObjectSetInteger(0, vahLineName, OBJPROP_STYLE, STYLE_DASH);
+               ObjectSetInteger(0, vahLineName, OBJPROP_WIDTH, 1);
+               ObjectSetInteger(0, vahLineName, OBJPROP_RAY_RIGHT, false);
+               ObjectSetInteger(0, vahLineName, OBJPROP_BACK, true);
+
+               string vahLbl = vahLineName + "_lbl";
+               ObjectCreate(0, vahLbl, OBJ_TEXT, 0, tEnd, vah);
+               ObjectSetString(0, vahLbl, OBJPROP_TEXT, StringFormat("%s VAH: %.2f", sessName, vah));
+               ObjectSetInteger(0, vahLbl, OBJPROP_COLOR, sessVAClr);
+               ObjectSetString(0, vahLbl, OBJPROP_FONT, "Segoe UI");
+               ObjectSetInteger(0, vahLbl, OBJPROP_FONTSIZE, 7);
+            }
+            else
+            {
+               ObjectSetInteger(0, vahLineName, OBJPROP_TIME, 1, tEnd);
+               ObjectSetDouble(0, vahLineName, OBJPROP_PRICE, 0, vah);
+               ObjectSetDouble(0, vahLineName, OBJPROP_PRICE, 1, vah);
+               ObjectSetInteger(0, vahLineName + "_lbl", OBJPROP_TIME, tEnd);
+               ObjectSetDouble(0, vahLineName + "_lbl", OBJPROP_PRICE, vah);
+            }
+         }
+
+         // 2c. Value Area Low (VAL - 70%) Ray Line & Label
+         string valLineName = prefix + "VAL_" + sessionID;
+         if(val > 0)
+         {
+            if(ObjectFind(0, valLineName) < 0)
+            {
+               ObjectCreate(0, valLineName, OBJ_TREND, 0, tStart, val, tEnd, val);
+               ObjectSetInteger(0, valLineName, OBJPROP_COLOR, sessVAClr);
+               ObjectSetInteger(0, valLineName, OBJPROP_STYLE, STYLE_DASH);
+               ObjectSetInteger(0, valLineName, OBJPROP_WIDTH, 1);
+               ObjectSetInteger(0, valLineName, OBJPROP_RAY_RIGHT, false);
+               ObjectSetInteger(0, valLineName, OBJPROP_BACK, true);
+
+               string valLbl = valLineName + "_lbl";
+               ObjectCreate(0, valLbl, OBJ_TEXT, 0, tEnd, val);
+               ObjectSetString(0, valLbl, OBJPROP_TEXT, StringFormat("%s VAL: %.2f", sessName, val));
+               ObjectSetInteger(0, valLbl, OBJPROP_COLOR, sessVAClr);
+               ObjectSetString(0, valLbl, OBJPROP_FONT, "Segoe UI");
+               ObjectSetInteger(0, valLbl, OBJPROP_FONTSIZE, 7);
+            }
+            else
+            {
+               ObjectSetInteger(0, valLineName, OBJPROP_TIME, 1, tEnd);
+               ObjectSetDouble(0, valLineName, OBJPROP_PRICE, 0, val);
+               ObjectSetDouble(0, valLineName, OBJPROP_PRICE, 1, val);
+               ObjectSetInteger(0, valLineName + "_lbl", OBJPROP_TIME, tEnd);
+               ObjectSetDouble(0, valLineName + "_lbl", OBJPROP_PRICE, val);
+            }
+         }
+
          // 3. Initial Balance Box
          string ibBoxName = prefix + "IB_" + sessionID;
          if(InpShowIB && ibHigh > 0 && ibLow < 1000000.0)

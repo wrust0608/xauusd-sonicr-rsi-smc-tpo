@@ -197,23 +197,48 @@ void DrawSweepLabel(string name, datetime t, double p, color clr, string label, 
 //+------------------------------------------------------------------+
 //| Helper: Draw Box (Order Block / FVG / Premium-Discount)          |
 //+------------------------------------------------------------------+
-void DrawBox(string name, datetime t1, double top, datetime t2, double btm, color clr, bool isFilled)
+void DrawBox(string name, datetime t1, double top, datetime t2, double btm, color borderClr, color bgClr, bool isFilled, string labelText = "")
 {
    string objName = prefix + name;
    if(ObjectFind(0, objName) < 0)
    {
       ObjectCreate(0, objName, OBJ_RECTANGLE, 0, t1, top, t2, btm);
-      ObjectSetInteger(0, objName, OBJPROP_COLOR, clr);
-      ObjectSetInteger(0, objName, OBJPROP_BGCOLOR, clr);
-      ObjectSetInteger(0, objName, OBJPROP_STYLE, isFilled ? STYLE_SOLID : STYLE_DOT);
+      ObjectSetInteger(0, objName, OBJPROP_COLOR, borderClr);
+      ObjectSetInteger(0, objName, OBJPROP_BGCOLOR, bgClr);
+      ObjectSetInteger(0, objName, OBJPROP_STYLE, STYLE_SOLID);
       ObjectSetInteger(0, objName, OBJPROP_WIDTH, 1);
       ObjectSetInteger(0, objName, OBJPROP_FILL, isFilled);
-      ObjectSetInteger(0, objName, OBJPROP_BACK, true);
+      ObjectSetInteger(0, objName, OBJPROP_BACK, true); // Keep strictly behind candlesticks
    }
    else
    {
       ObjectSetInteger(0, objName, OBJPROP_TIME, 1, t2);
    }
+
+   if(labelText != "")
+   {
+      string lblName = objName + "_lbl";
+      if(ObjectFind(0, lblName) < 0)
+      {
+         ObjectCreate(0, lblName, OBJ_TEXT, 0, t1, top);
+         ObjectSetString(0, lblName, OBJPROP_TEXT, labelText);
+         ObjectSetInteger(0, lblName, OBJPROP_COLOR, borderClr);
+         ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI");
+         ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 7);
+         ObjectSetInteger(0, lblName, OBJPROP_ANCHOR, ANCHOR_LEFT_LOWER);
+         ObjectSetInteger(0, lblName, OBJPROP_BACK, true);
+      }
+      else
+      {
+         ObjectSetDouble(0, lblName, OBJPROP_PRICE, top);
+         ObjectSetInteger(0, lblName, OBJPROP_TIME, t1);
+      }
+   }
+}
+
+void DrawBox(string name, datetime t1, double top, datetime t2, double btm, color clr, bool isFilled)
+{
+   DrawBox(name, t1, top, t2, btm, clr, clr, isFilled, "");
 }
 
 //+------------------------------------------------------------------+
@@ -350,7 +375,8 @@ int OnCalculate(const int rates_total,
    if(InpShowFVG)
    {
       double minGap = InpMinFVGPips * _Point * 10.0;
-      for(int i = limit; i >= 2; i--)
+      int activeFvgCount = 0;
+      for(int i = limit; i >= 2 && activeFvgCount < 5; i--)
       {
          // Bullish FVG
          if(low[i - 2] - high[i] >= minGap)
@@ -365,11 +391,13 @@ int OnCalculate(const int rates_total,
             if(!mitigated)
             {
                g_activeBullFVGCount++;
-               DrawBox(fvgName, time[i], low[i - 2], endT, high[i], InpBullFVGColor, true);
+               activeFvgCount++;
+               DrawBox(fvgName, time[i], low[i - 2], endT, high[i], C'46,139,87', C'20,52,38', false, "Bull FVG");
             }
             else
             {
                ObjectDelete(0, prefix + fvgName);
+               ObjectDelete(0, prefix + fvgName + "_lbl");
             }
          }
 
@@ -386,11 +414,13 @@ int OnCalculate(const int rates_total,
             if(!mitigated)
             {
                g_activeBearFVGCount++;
-               DrawBox(fvgName, time[i], low[i], endT, high[i - 2], InpBearFVGColor, true);
+               activeFvgCount++;
+               DrawBox(fvgName, time[i], low[i], endT, high[i - 2], C'205,92,92', C'52,22,28', false, "Bear FVG");
             }
             else
             {
                ObjectDelete(0, prefix + fvgName);
+               ObjectDelete(0, prefix + fvgName + "_lbl");
             }
          }
       }
@@ -514,7 +544,7 @@ int OnCalculate(const int rates_total,
          }
 
          // Order Block: last down candle before expansion
-         if(InpShowOB && lastSH_bar > i)
+         if(InpShowOB && lastSH_bar > i && g_activeBullOBCount < InpMaxActiveOB)
          {
             int obBar = -1;
             for(int b = lastSH_bar - 1; b >= i; b--)
@@ -523,15 +553,24 @@ int OnCalculate(const int rates_total,
             }
             if(obBar > 0)
             {
-               datetime endT = time[0];
+               datetime maxEnd = (obBar >= 40) ? time[obBar - 40] : time[0];
+               datetime endT = maxEnd;
                bool mitigated = false;
                for(int m = obBar - 1; m >= 0; m--)
                {
                   if(close[m] < low[obBar]) { endT = time[m]; mitigated = true; break; }
                }
-               if(!mitigated) g_activeBullOBCount++;
                string obName = StringFormat("OB_Bull_%s", TimeToString(time[obBar]));
-               DrawBox(obName, time[obBar], high[obBar], endT, low[obBar], InpBullOBColor, false);
+               if(!mitigated)
+               {
+                  g_activeBullOBCount++;
+                  DrawBox(obName, time[obBar], high[obBar], endT, low[obBar], clrMediumSeaGreen, C'18,48,34', false, "Bull OB");
+               }
+               else
+               {
+                  ObjectDelete(0, prefix + obName);
+                  ObjectDelete(0, prefix + obName + "_lbl");
+               }
             }
          }
 
@@ -560,7 +599,7 @@ int OnCalculate(const int rates_total,
          }
 
          // Order Block: last up candle before expansion
-         if(InpShowOB && lastSL_bar > i)
+         if(InpShowOB && lastSL_bar > i && g_activeBearOBCount < InpMaxActiveOB)
          {
             int obBar = -1;
             for(int b = lastSL_bar - 1; b >= i; b--)
@@ -569,15 +608,24 @@ int OnCalculate(const int rates_total,
             }
             if(obBar > 0)
             {
-               datetime endT = time[0];
+               datetime maxEnd = (obBar >= 40) ? time[obBar - 40] : time[0];
+               datetime endT = maxEnd;
                bool mitigated = false;
                for(int m = obBar - 1; m >= 0; m--)
                {
                   if(close[m] > high[obBar]) { endT = time[m]; mitigated = true; break; }
                }
-               if(!mitigated) g_activeBearOBCount++;
                string obName = StringFormat("OB_Bear_%s", TimeToString(time[obBar]));
-               DrawBox(obName, time[obBar], high[obBar], endT, low[obBar], InpBearOBColor, false);
+               if(!mitigated)
+               {
+                  g_activeBearOBCount++;
+                  DrawBox(obName, time[obBar], high[obBar], endT, low[obBar], clrIndianRed, C'48,20,24', false, "Bear OB");
+               }
+               else
+               {
+                  ObjectDelete(0, prefix + obName);
+                  ObjectDelete(0, prefix + obName + "_lbl");
+               }
             }
          }
 
@@ -636,11 +684,23 @@ int OnCalculate(const int rates_total,
             ObjectSetInteger(0, eqLineName, OBJPROP_STYLE, STYLE_DASH);
             ObjectSetInteger(0, eqLineName, OBJPROP_WIDTH, 1);
             ObjectSetInteger(0, eqLineName, OBJPROP_RAY_RIGHT, true);
+            ObjectSetInteger(0, eqLineName, OBJPROP_BACK, true);
+
+            string eqLblName = eqLineName + "_lbl";
+            ObjectCreate(0, eqLblName, OBJ_TEXT, 0, time[0], g_currentEqPrice);
+            ObjectSetString(0, eqLblName, OBJPROP_TEXT, StringFormat("  50%% EQ: %.2f", g_currentEqPrice));
+            ObjectSetInteger(0, eqLblName, OBJPROP_COLOR, InpEquilibriumColor);
+            ObjectSetString(0, eqLblName, OBJPROP_FONT, "Segoe UI");
+            ObjectSetInteger(0, eqLblName, OBJPROP_FONTSIZE, 7);
+            ObjectSetInteger(0, eqLblName, OBJPROP_BACK, true);
          }
          else
          {
             ObjectSetDouble(0, eqLineName, OBJPROP_PRICE, 0, g_currentEqPrice);
             ObjectSetDouble(0, eqLineName, OBJPROP_PRICE, 1, g_currentEqPrice);
+            ObjectSetInteger(0, eqLineName + "_lbl", OBJPROP_TIME, time[0]);
+            ObjectSetDouble(0, eqLineName + "_lbl", OBJPROP_PRICE, g_currentEqPrice);
+            ObjectSetString(0, eqLineName + "_lbl", OBJPROP_TEXT, StringFormat("  50%% EQ: %.2f", g_currentEqPrice));
          }
       }
 

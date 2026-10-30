@@ -135,6 +135,19 @@ int OnInit()
       PlotIndexSetDouble(i, PLOT_EMPTY_VALUE, EMPTY_VALUE);
    }
 
+   // Configure Level Texts and Colors
+   IndicatorSetString(INDICATOR_LEVELTEXT, 0, "Oversold [30]");
+   IndicatorSetString(INDICATOR_LEVELTEXT, 1, "Bull Support [40]");
+   IndicatorSetString(INDICATOR_LEVELTEXT, 2, "Equilibrium [50]");
+   IndicatorSetString(INDICATOR_LEVELTEXT, 3, "Bear Resist [60]");
+   IndicatorSetString(INDICATOR_LEVELTEXT, 4, "Overbought [70]");
+
+   IndicatorSetInteger(INDICATOR_LEVELCOLOR, 0, clrDarkSlateGray);
+   IndicatorSetInteger(INDICATOR_LEVELCOLOR, 1, C'46,139,87');  // SeaGreen for Bull Support 40
+   IndicatorSetInteger(INDICATOR_LEVELCOLOR, 2, clrSilver);     // Silver for Equilibrium 50
+   IndicatorSetInteger(INDICATOR_LEVELCOLOR, 3, C'205,92,92');  // IndianRed for Bear Resist 60
+   IndicatorSetInteger(INDICATOR_LEVELCOLOR, 4, clrDarkSlateGray);
+
    handleRsi = iRSI(_Symbol, _Period, 14, PRICE_CLOSE);
    if(handleRsi == INVALID_HANDLE)
    {
@@ -223,7 +236,7 @@ bool GetHtfPulse(ENUM_TIMEFRAMES tf, double &out_r, double &out_e, double &out_w
 //+------------------------------------------------------------------+
 //| Helper: Draw Divergence Trendline on Subwindow                   |
 //+------------------------------------------------------------------+
-void DrawDivLine(string name, datetime t1, double p1, datetime t2, double p2, color clr)
+void DrawDivLine(string name, datetime t1, double p1, datetime t2, double p2, color clr, string tag = "")
 {
    if(!InpDrawDivLines) return;
 
@@ -238,6 +251,16 @@ void DrawDivLine(string name, datetime t1, double p1, datetime t2, double p2, co
       ObjectSetInteger(0, objName, OBJPROP_STYLE, STYLE_SOLID);
       ObjectSetInteger(0, objName, OBJPROP_WIDTH, 2);
       ObjectSetInteger(0, objName, OBJPROP_RAY_RIGHT, false);
+
+      if(tag != "")
+      {
+         string lblName = objName + "_lbl";
+         ObjectCreate(0, lblName, OBJ_TEXT, subwindow, t2, p2);
+         ObjectSetString(0, lblName, OBJPROP_TEXT, " " + tag);
+         ObjectSetInteger(0, lblName, OBJPROP_COLOR, clr);
+         ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI");
+         ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 7);
+      }
    }
 }
 
@@ -253,10 +276,10 @@ void RenderPaneHUD(bool b4_up, bool b4_dn, double sp4, double sl4,
    int subwindow = ChartWindowFind(0, "RSI Trend Pulse MTF Unleashed (" + _Symbol + ")");
    if(subwindow < 0) subwindow = 1;
 
-   int bgX = 10;
-   int bgY = 24;
-   int bgW = 260;
-   int bgH = 56;
+   int bgX = 110;
+   int bgY = 8;
+   int bgW = 275;
+   int bgH = 68;
 
    string bgName = prefix + "Pane_BG";
    if(ObjectFind(0, bgName) < 0)
@@ -273,13 +296,16 @@ void RenderPaneHUD(bool b4_up, bool b4_dn, double sp4, double sl4,
    ObjectSetInteger(0, bgName, OBJPROP_XSIZE, bgW);
    ObjectSetInteger(0, bgName, OBJPROP_YSIZE, bgH);
 
-   string lines[3];
+   string cardwellStr = (r15 >= 40.0 && r15 <= 80.0 && b1_up) ? "BULL CORRIDOR (40-80)" : ((r15 >= 20.0 && r15 <= 60.0 && b1_dn) ? "BEAR CORRIDOR (20-60)" : "RANGE / TRANSITION");
+
+   string lines[4];
    lines[0] = StringFormat("H4: %s (Sp:%.1f) | H1: %s (Sp:%.1f)", b4_up ? "BULL" : (b4_dn ? "BEAR" : "CHOP"), sp4, b1_up ? "BULL" : (b1_dn ? "BEAR" : "CHOP"), sp1);
    lines[1] = StringFormat("M15: %s [RSI: %.1f | WMA: %.1f]", m15_up ? "WAIT BUY (40-50)" : (m15_dn ? "WAIT SELL (50-60)" : "OUTSIDE"), r15, w15);
-   lines[2] = StringFormat("M5 State: LatchUp=%s | LatchDn=%s", latch_up ? "ON" : "OFF", latch_dn ? "ON" : "OFF");
+   lines[2] = StringFormat("Cardwell: %s", cardwellStr);
+   lines[3] = StringFormat("M5 State: LatchUp=%s | LatchDn=%s", latch_up ? "ON" : "OFF", latch_dn ? "ON" : "OFF");
 
    int startY = bgY + 4;
-   for(int i = 0; i < 3; i++)
+   for(int i = 0; i < 4; i++)
    {
       string lblName = prefix + "HUD_" + IntegerToString(i);
       if(ObjectFind(0, lblName) < 0)
@@ -296,7 +322,8 @@ void RenderPaneHUD(bool b4_up, bool b4_dn, double sp4, double sl4,
       color clr = InpHUDColor;
       if(i == 0) clr = (b4_up && b1_up) ? clrSpringGreen : ((b4_dn && b1_dn) ? clrTomato : clrYellow);
       if(i == 1) clr = (m15_up || m15_dn) ? clrGold : clrLightSlateGray;
-      if(i == 2) clr = (latch_up || latch_dn) ? clrCyan : clrWhite;
+      if(i == 2) clr = (StringFind(cardwellStr, "BULL") >= 0) ? clrSpringGreen : ((StringFind(cardwellStr, "BEAR") >= 0) ? clrTomato : clrSilver);
+      if(i == 3) clr = (latch_up || latch_dn) ? clrCyan : clrDimGray;
       ObjectSetString(0, lblName, OBJPROP_TEXT, lines[i]);
       ObjectSetInteger(0, lblName, OBJPROP_COLOR, clr);
    }
@@ -465,7 +492,8 @@ int OnCalculate(const int rates_total,
       if(kl1_r > 0 && kl2_r > 0)
       {
          string divName = StringFormat("Div_Bull_%s", TimeToString(time[kl2_r]));
-         DrawDivLine(divName, time[kl1_r], BufferRsi[kl1_r], time[kl2_r], BufferRsi[kl2_r], clrSpringGreen);
+         string typeShort = isRegBull ? "Reg Bull Div" : (isHidBull ? "Hid Bull Div" : "RSI DB");
+         DrawDivLine(divName, time[kl1_r], BufferRsi[kl1_r], time[kl2_r], BufferRsi[kl2_r], clrSpringGreen, typeShort);
       }
 
       if(time[0] != lastAlertTime)
@@ -489,7 +517,8 @@ int OnCalculate(const int rates_total,
       if(kh1_r > 0 && kh2_r > 0)
       {
          string divName = StringFormat("Div_Bear_%s", TimeToString(time[kh2_r]));
-         DrawDivLine(divName, time[kh1_r], BufferRsi[kh1_r], time[kh2_r], BufferRsi[kh2_r], clrRed);
+         string typeShort = isRegBear ? "Reg Bear Div" : (isHidBear ? "Hid Bear Div" : "RSI DT");
+         DrawDivLine(divName, time[kh1_r], BufferRsi[kh1_r], time[kh2_r], BufferRsi[kh2_r], clrRed, typeShort);
       }
 
       if(time[0] != lastAlertTime)
