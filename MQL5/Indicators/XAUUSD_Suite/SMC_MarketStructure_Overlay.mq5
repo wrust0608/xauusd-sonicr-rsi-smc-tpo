@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "Antigravity AI"
 #property link        "https://antigravity.ai"
-#property version     "2.50"
-#property description "XAUUSD Smart Money Concepts Suite: Major & Internal Structure (BOS/CHoCH), Order Blocks, FVGs, EQH/EQL, Liquidity Sweeps, Premium/Discount & HUD"
+#property version     "2.55"
+#property description "XAUUSD Smart Money Concepts Suite: Major & Internal Structure (BOS/CHoCH), Order Blocks, FVGs, EQH/EQL, Liquidity Sweeps, Premium/Discount & Clean HUD"
 #property indicator_chart_window
 #property indicator_buffers 4
 #property indicator_plots   4
@@ -63,18 +63,18 @@ input group "=== 4. Order Blocks (OB) Settings ==="
 input bool     InpShowOB           = true;          // Show Order Blocks
 input color    InpBullOBColor      = clrDarkSeaGreen;// Bullish OB Color
 input color    InpBearOBColor      = clrIndianRed;   // Bearish OB Color
-input int      InpMaxActiveOB      = 10;            // Max Active OBs on Chart
+input int      InpMaxActiveOB      = 8;             // Max Active OBs on Chart
 
 input group "=== 5. Fair Value Gaps (FVG) Settings ==="
 input bool     InpShowFVG          = true;          // Show Fair Value Gaps (FVG)
-input color    InpBullFVGColor     = C'215,245,215'; // Bullish FVG Fill Color
-input color    InpBearFVGColor     = C'255,220,220'; // Bearish FVG Fill Color
+input color    InpBullFVGColor     = C'35,55,35';    // Bullish FVG Fill Color (Subtle Dark)
+input color    InpBearFVGColor     = C'55,35,35';    // Bearish FVG Fill Color (Subtle Dark)
 input double   InpMinFVGPips       = 3.0;           // Min FVG Gap Size (Points/Pips)
 
 input group "=== 6. Premium / Discount & Equilibrium ==="
 input bool     InpShowPremDisc     = true;          // Show Premium / Discount Range
-input color    InpPremiumColor     = C'255,225,225'; // Premium Zone Color
-input color    InpDiscountColor    = C'225,255,225'; // Discount Zone Color
+input color    InpPremiumColor     = clrIndianRed;  // Premium Zone Border Color
+input color    InpDiscountColor    = clrDarkSeaGreen;// Discount Zone Border Color
 input color    InpEquilibriumColor = clrSilver;     // 50% Equilibrium Line Color
 
 input group "=== 7. Visual HUD Dashboard ==="
@@ -83,7 +83,7 @@ input int      InpHUDCorner        = 0;             // HUD Corner (0 = Top-Left,
 input color    InpHUDColor         = clrWhite;      // HUD Text Color
 
 input group "=== 8. Multi-Channel Alert Settings ==="
-input bool     InpEnablePopup      = true;          // Enable Pop-up Alerts
+input bool     InpEnablePopup      = false;          // Enable Pop-up Alerts
 input bool     InpEnableSound      = true;          // Enable Sound Alerts
 input bool     InpEnablePush       = false;         // Enable Push Notification (Phone)
 input bool     InpEnableEmail      = false;         // Enable Email Alerts
@@ -94,19 +94,11 @@ double BufferMajorLo[];
 double BufferMinorHi[];
 double BufferMinorLo[];
 
-//--- Structure Definitions
-struct SwingPoint
-{
-   int      bar;
-   datetime time;
-   double   price;
-   bool     isHigh;
-   bool     isMajor;
-};
-
 //--- Global Variables
 string prefix;
 datetime lastAlertTime = 0;
+datetime lastSweepBullTime = 0;
+datetime lastSweepBearTime = 0;
 string g_lastStructureEvent = "None";
 int    g_activeBullOBCount = 0;
 int    g_activeBearOBCount = 0;
@@ -124,6 +116,11 @@ int OnInit()
    SetIndexBuffer(1, BufferMajorLo, INDICATOR_DATA);
    SetIndexBuffer(2, BufferMinorHi, INDICATOR_DATA);
    SetIndexBuffer(3, BufferMinorLo, INDICATOR_DATA);
+
+   ArrayInitialize(BufferMajorHi, EMPTY_VALUE);
+   ArrayInitialize(BufferMajorLo, EMPTY_VALUE);
+   ArrayInitialize(BufferMinorHi, EMPTY_VALUE);
+   ArrayInitialize(BufferMinorLo, EMPTY_VALUE);
 
    PlotIndexSetInteger(0, PLOT_ARROW, 159); // Large dot
    PlotIndexSetInteger(1, PLOT_ARROW, 159);
@@ -155,7 +152,7 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void TriggerAlert(string text)
 {
-   if(InpEnablePopup) Alert(text);
+   if(!MQLInfoInteger(MQL_TESTER) && InpEnablePopup) Alert(text);
    if(InpEnableSound) PlaySound("alert.wav");
    if(InpEnablePush)  SendNotification(text);
    if(InpEnableEmail) SendMail("SMC Market Structure Alert", text);
@@ -182,7 +179,7 @@ void DrawStructureLine(string name, datetime t1, double p1, datetime t2, double 
       ObjectCreate(0, lblName, OBJ_TEXT, 0, midTime, p1);
       ObjectSetString(0, lblName, OBJPROP_TEXT, text);
       ObjectSetInteger(0, lblName, OBJPROP_COLOR, clr);
-      ObjectSetString(0, lblName, OBJPROP_FONT, "Arial Bold");
+      ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI Semibold");
       ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 8);
       ObjectSetInteger(0, lblName, OBJPROP_ANCHOR, ANCHOR_LOWER);
    }
@@ -206,7 +203,7 @@ void DrawLiquidityLine(string name, datetime t1, double p, datetime t2, color cl
       ObjectCreate(0, lblName, OBJ_TEXT, 0, t2, p);
       ObjectSetString(0, lblName, OBJPROP_TEXT, label);
       ObjectSetInteger(0, lblName, OBJPROP_COLOR, clr);
-      ObjectSetString(0, lblName, OBJPROP_FONT, "Arial Bold");
+      ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI");
       ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 8);
       ObjectSetInteger(0, lblName, OBJPROP_ANCHOR, ANCHOR_LEFT);
    }
@@ -223,8 +220,8 @@ void DrawSweepLabel(string name, datetime t, double p, color clr, string label, 
       ObjectCreate(0, objName, OBJ_TEXT, 0, t, p);
       ObjectSetString(0, objName, OBJPROP_TEXT, label);
       ObjectSetInteger(0, objName, OBJPROP_COLOR, clr);
-      ObjectSetString(0, objName, OBJPROP_FONT, "Arial Bold");
-      ObjectSetInteger(0, objName, OBJPROP_FONTSIZE, 8);
+      ObjectSetString(0, objName, OBJPROP_FONT, "Segoe UI Bold");
+      ObjectSetInteger(0, objName, OBJPROP_FONTSIZE, 7);
       ObjectSetInteger(0, objName, OBJPROP_ANCHOR, isBull ? ANCHOR_UPPER : ANCHOR_LOWER);
    }
 }
@@ -240,7 +237,7 @@ void DrawBox(string name, datetime t1, double top, datetime t2, double btm, colo
       ObjectCreate(0, objName, OBJ_RECTANGLE, 0, t1, top, t2, btm);
       ObjectSetInteger(0, objName, OBJPROP_COLOR, clr);
       ObjectSetInteger(0, objName, OBJPROP_BGCOLOR, clr);
-      ObjectSetInteger(0, objName, OBJPROP_STYLE, STYLE_SOLID);
+      ObjectSetInteger(0, objName, OBJPROP_STYLE, isFilled ? STYLE_SOLID : STYLE_DOT);
       ObjectSetInteger(0, objName, OBJPROP_WIDTH, 1);
       ObjectSetInteger(0, objName, OBJPROP_FILL, isFilled);
       ObjectSetInteger(0, objName, OBJPROP_BACK, true);
@@ -252,58 +249,57 @@ void DrawBox(string name, datetime t1, double top, datetime t2, double btm, colo
 }
 
 //+------------------------------------------------------------------+
-//| Render HUD Dashboard                                             |
+//| Render HUD Dashboard - Ultra Sleek & Compact (Top-Left)          |
 //+------------------------------------------------------------------+
 void UpdateHUD(int activeTrend, double currentPrice, double rangeHigh, double rangeLow)
 {
    if(!InpShowHUD) return;
 
+   int startX = 15;
+   int startY = 36;
+   int width  = 210;
+   int height = 82;
+
    string bgName = prefix + "HUD_BG";
    if(ObjectFind(0, bgName) < 0)
    {
       ObjectCreate(0, bgName, OBJ_RECTANGLE_LABEL, 0, 0, 0);
-      ObjectSetInteger(0, bgName, OBJPROP_CORNER, InpHUDCorner);
-      ObjectSetInteger(0, bgName, OBJPROP_XDISTANCE, 20);
-      ObjectSetInteger(0, bgName, OBJPROP_YDISTANCE, 25);
-      ObjectSetInteger(0, bgName, OBJPROP_XSIZE, 230);
-      ObjectSetInteger(0, bgName, OBJPROP_YSIZE, 150);
-      ObjectSetInteger(0, bgName, OBJPROP_BGCOLOR, C'20,24,32');
-      ObjectSetInteger(0, bgName, OBJPROP_BORDER_COLOR, clrLightSlateGray);
+      ObjectSetInteger(0, bgName, OBJPROP_BGCOLOR, C'15,18,24');
+      ObjectSetInteger(0, bgName, OBJPROP_BORDER_COLOR, C'45,55,72');
       ObjectSetInteger(0, bgName, OBJPROP_BORDER_TYPE, BORDER_FLAT);
       ObjectSetInteger(0, bgName, OBJPROP_BACK, false);
    }
+   ObjectSetInteger(0, bgName, OBJPROP_CORNER, InpHUDCorner);
+   ObjectSetInteger(0, bgName, OBJPROP_XDISTANCE, startX);
+   ObjectSetInteger(0, bgName, OBJPROP_YDISTANCE, startY);
+   ObjectSetInteger(0, bgName, OBJPROP_XSIZE, width);
+   ObjectSetInteger(0, bgName, OBJPROP_YSIZE, height);
 
-   string lines[7];
-   lines[0] = "=== SMC MARKET STRUCTURE HUD ===";
-   lines[1] = StringFormat("Structure Bias: %s", (activeTrend > 0) ? "BULLISH (BOS Up)" : (activeTrend < 0) ? "BEARISH (BOS Down)" : "RANGING / NEUTRAL");
-   lines[2] = StringFormat("Dealing Range: %.2f - %.2f", rangeLow, rangeHigh);
-   lines[3] = StringFormat("Equilibrium (50%%): %.2f | Zone: %s", g_currentEqPrice, g_currentZone);
-   lines[4] = StringFormat("Active OBs: Bull %d | Bear %d", g_activeBullOBCount, g_activeBearOBCount);
-   lines[5] = StringFormat("Active FVGs: Bull %d | Bear %d", g_activeBullFVGCount, g_activeBearFVGCount);
-   lines[6] = StringFormat("Last Event: %s", g_lastStructureEvent);
+   string lines[4];
+   lines[0] = "SMC STRUCTURE (M5)";
+   lines[1] = StringFormat("Bias: %s", (activeTrend > 0) ? "BULLISH (BOS)" : (activeTrend < 0) ? "BEARISH (BOS)" : "RANGING / NEUTRAL");
+   lines[2] = StringFormat("Range: %.1f - %.1f | EQ: %.1f", rangeLow, rangeHigh, g_currentEqPrice);
+   lines[3] = StringFormat("Zone: %s | OB: %d/%d | FVG: %d", g_currentZone, g_activeBullOBCount, g_activeBearOBCount, g_activeBullFVGCount + g_activeBearFVGCount);
 
-   color lineClrs[7];
+   color lineClrs[4];
    lineClrs[0] = clrGold;
-   lineClrs[1] = (activeTrend > 0) ? clrSpringGreen : (activeTrend < 0) ? clrCrimson : clrYellow;
+   lineClrs[1] = (activeTrend > 0) ? clrSpringGreen : (activeTrend < 0) ? clrTomato : clrYellow;
    lineClrs[2] = clrLightGray;
-   lineClrs[3] = (g_currentZone == "Premium") ? clrIndianRed : (g_currentZone == "Discount") ? clrDarkSeaGreen : clrWhite;
-   lineClrs[4] = clrAqua;
-   lineClrs[5] = clrPlum;
-   lineClrs[6] = clrWhite;
+   lineClrs[3] = (g_currentZone == "Premium") ? clrTomato : (g_currentZone == "Discount") ? clrSpringGreen : clrWhite;
 
-   for(int k = 0; k < 7; k++)
+   for(int k = 0; k < 4; k++)
    {
       string lblName = prefix + "HUD_Txt_" + IntegerToString(k);
       if(ObjectFind(0, lblName) < 0)
       {
          ObjectCreate(0, lblName, OBJ_LABEL, 0, 0, 0);
-         ObjectSetInteger(0, lblName, OBJPROP_CORNER, InpHUDCorner);
-         ObjectSetInteger(0, lblName, OBJPROP_XDISTANCE, 30);
-         ObjectSetInteger(0, lblName, OBJPROP_YDISTANCE, 35 + k * 18);
-         ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI Semibold");
+         ObjectSetString(0, lblName, OBJPROP_FONT, (k == 0) ? "Segoe UI Bold" : "Segoe UI Semibold");
          ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 8);
          ObjectSetInteger(0, lblName, OBJPROP_BACK, false);
       }
+      ObjectSetInteger(0, lblName, OBJPROP_CORNER, InpHUDCorner);
+      ObjectSetInteger(0, lblName, OBJPROP_XDISTANCE, startX + 10);
+      ObjectSetInteger(0, lblName, OBJPROP_YDISTANCE, startY + 8 + (k * 17));
       ObjectSetString(0, lblName, OBJPROP_TEXT, lines[k]);
       ObjectSetInteger(0, lblName, OBJPROP_COLOR, lineClrs[k]);
    }
@@ -339,14 +335,18 @@ int OnCalculate(const int rates_total,
    if(limit > rates_total - InpMajorLookback - 1) limit = rates_total - InpMajorLookback - 1;
    if(limit > InpMaxHistoryBars) limit = InpMaxHistoryBars;
 
-   // 1. Identify Major & Minor Swings
-   for(int i = limit; i >= InpMinorLookback; i--)
+   // 1. Reset buffers
+   for(int i = limit; i >= 0; i--)
    {
       BufferMajorHi[i] = EMPTY_VALUE;
       BufferMajorLo[i] = EMPTY_VALUE;
       BufferMinorHi[i] = EMPTY_VALUE;
       BufferMinorLo[i] = EMPTY_VALUE;
+   }
 
+   // 2. Identify Major & Minor Swings
+   for(int i = limit; i >= InpMinorLookback; i--)
+   {
       // Minor Swings
       if(InpShowInternal && i <= limit - InpMinorLookback && i >= InpMinorLookback)
       {
@@ -376,7 +376,7 @@ int OnCalculate(const int rates_total,
       }
    }
 
-   // 2. FVG Detection (3-Candle Imbalances)
+   // 3. FVG Detection (3-Candle Imbalances)
    g_activeBullFVGCount = 0;
    g_activeBearFVGCount = 0;
    if(InpShowFVG)
@@ -414,7 +414,7 @@ int OnCalculate(const int rates_total,
       }
    }
 
-   // 3. Liquidity Pools (Equal Highs EQH / Equal Lows EQL)
+   // 4. Liquidity Pools (Equal Highs EQH / Equal Lows EQL)
    if(InpShowLiquidity)
    {
       double eqTol = InpEQHTolerance * _Point * 10.0;
@@ -430,7 +430,7 @@ int OnCalculate(const int rates_total,
             if(prevSH != EMPTY_VALUE && MathAbs(BufferMajorHi[i] - prevSH) <= eqTol)
             {
                string eqhName = StringFormat("EQH_%s", TimeToString(time[i]));
-               DrawLiquidityLine(eqhName, prevSH_time, BufferMajorHi[i], time[0], InpLiquidityColor, "$$$ EQH (BSL)");
+               DrawLiquidityLine(eqhName, prevSH_time, BufferMajorHi[i], time[0], InpLiquidityColor, "$$$ EQH");
             }
             prevSH = BufferMajorHi[i];
             prevSH_time = time[i];
@@ -441,7 +441,7 @@ int OnCalculate(const int rates_total,
             if(prevSL != EMPTY_VALUE && MathAbs(BufferMajorLo[i] - prevSL) <= eqTol)
             {
                string eqlName = StringFormat("EQL_%s", TimeToString(time[i]));
-               DrawLiquidityLine(eqlName, prevSL_time, BufferMajorLo[i], time[0], InpLiquidityColor, "$$$ EQL (SSL)");
+               DrawLiquidityLine(eqlName, prevSL_time, BufferMajorLo[i], time[0], InpLiquidityColor, "$$$ EQL");
             }
             prevSL = BufferMajorLo[i];
             prevSL_time = time[i];
@@ -449,7 +449,7 @@ int OnCalculate(const int rates_total,
       }
    }
 
-   // 4. Major BOS, CHoCH, Liquidity Sweeps (SFP) & Order Blocks
+   // 5. Major BOS, CHoCH, Liquidity Sweeps (SFP) & Order Blocks
    int lastTrend = 0; // +1 = Uptrend, -1 = Downtrend
    double lastSH = EMPTY_VALUE, lastSL = EMPTY_VALUE;
    datetime lastSH_time = 0, lastSL_time = 0;
@@ -460,13 +460,13 @@ int OnCalculate(const int rates_total,
 
    for(int i = limit; i >= 1; i--)
    {
-      if(BufferMajorHi[i] != EMPTY_VALUE)
+      if(BufferMajorHi[i] != EMPTY_VALUE && BufferMajorHi[i] > 100.0)
       {
          lastSH      = BufferMajorHi[i];
          lastSH_time = time[i];
          lastSH_bar  = i;
       }
-      if(BufferMajorLo[i] != EMPTY_VALUE)
+      if(BufferMajorLo[i] != EMPTY_VALUE && BufferMajorLo[i] > 100.0)
       {
          lastSL      = BufferMajorLo[i];
          lastSL_time = time[i];
@@ -479,26 +479,34 @@ int OnCalculate(const int rates_total,
          // Bearish SFP (Sweep of Swing High)
          if(lastSH != EMPTY_VALUE && high[i] > lastSH && close[i] < lastSH && close[i + 1] < lastSH)
          {
-            string sfpName = StringFormat("SFP_Bear_%s", TimeToString(time[i]));
-            DrawSweepLabel(sfpName, time[i], high[i], InpBearSweepColor, "SWEEP (Bear SFP)", false);
-            if(i == 1 && time[1] != lastAlertTime)
+            if(time[i] - lastSweepBearTime > PeriodSeconds() * 3)
             {
-               TriggerAlert(StringFormat("[SMC ALERT] %s M%d: Bearish Liquidity Sweep (SFP) at %.2f", _Symbol, _Period, high[1]));
-               lastAlertTime = time[1];
-               g_lastStructureEvent = "Bearish Liquidity Sweep";
+               lastSweepBearTime = time[i];
+               string sfpName = StringFormat("SFP_Bear_%s", TimeToString(time[i]));
+               DrawSweepLabel(sfpName, time[i], high[i], InpBearSweepColor, "SFP", false);
+               if(i == 1 && time[1] != lastAlertTime)
+               {
+                  TriggerAlert(StringFormat("[SMC ALERT] %s M%d: Bearish Liquidity Sweep (SFP) at %.2f", _Symbol, _Period, high[1]));
+                  lastAlertTime = time[1];
+                  g_lastStructureEvent = "Bearish SFP";
+               }
             }
          }
 
          // Bullish SFP (Sweep of Swing Low)
          if(lastSL != EMPTY_VALUE && low[i] < lastSL && close[i] > lastSL && close[i + 1] > lastSL)
          {
-            string sfpName = StringFormat("SFP_Bull_%s", TimeToString(time[i]));
-            DrawSweepLabel(sfpName, time[i], low[i], InpBullSweepColor, "SWEEP (Bull SFP)", true);
-            if(i == 1 && time[1] != lastAlertTime)
+            if(time[i] - lastSweepBullTime > PeriodSeconds() * 3)
             {
-               TriggerAlert(StringFormat("[SMC ALERT] %s M%d: Bullish Liquidity Sweep (SFP) at %.2f", _Symbol, _Period, low[1]));
-               lastAlertTime = time[1];
-               g_lastStructureEvent = "Bullish Liquidity Sweep";
+               lastSweepBullTime = time[i];
+               string sfpName = StringFormat("SFP_Bull_%s", TimeToString(time[i]));
+               DrawSweepLabel(sfpName, time[i], low[i], InpBullSweepColor, "SFP", true);
+               if(i == 1 && time[1] != lastAlertTime)
+               {
+                  TriggerAlert(StringFormat("[SMC ALERT] %s M%d: Bullish Liquidity Sweep (SFP) at %.2f", _Symbol, _Period, low[1]));
+                  lastAlertTime = time[1];
+                  g_lastStructureEvent = "Bullish SFP";
+               }
             }
          }
       }
@@ -596,25 +604,25 @@ int OnCalculate(const int rates_total,
       }
    }
 
-   // 5. Dealing Range (Premium / Discount / Equilibrium)
-   double activeHi = 0.0, activeLo = 1000000.0;
+   // 6. Dealing Range (Premium / Discount / Equilibrium)
+   double activeHi = 0.0, activeLo = 0.0;
    datetime hiTime = 0, loTime = 0;
-   for(int i = 0; i < InpMaxHistoryBars && i < rates_total; i++)
+   for(int i = 1; i < InpMaxHistoryBars && i < rates_total; i++)
    {
-      if(BufferMajorHi[i] != EMPTY_VALUE && activeHi == 0.0)
+      if(BufferMajorHi[i] != EMPTY_VALUE && BufferMajorHi[i] > 100.0 && activeHi == 0.0)
       {
          activeHi = BufferMajorHi[i];
          hiTime   = time[i];
       }
-      if(BufferMajorLo[i] != EMPTY_VALUE && activeLo == 1000000.0)
+      if(BufferMajorLo[i] != EMPTY_VALUE && BufferMajorLo[i] > 100.0 && activeLo == 0.0)
       {
          activeLo = BufferMajorLo[i];
          loTime   = time[i];
       }
-      if(activeHi > 0.0 && activeLo < 1000000.0) break;
+      if(activeHi > 0.0 && activeLo > 0.0) break;
    }
 
-   if(activeHi > 0.0 && activeLo < 1000000.0 && activeHi > activeLo)
+   if(activeHi > 0.0 && activeLo > 0.0 && activeHi > activeLo)
    {
       datetime rangeStart = MathMin(hiTime, loTime);
       g_currentEqPrice = (activeHi + activeLo) / 2.0;
@@ -626,10 +634,9 @@ int OnCalculate(const int rates_total,
 
       if(InpShowPremDisc)
       {
-         // Premium Box (50% to 100%)
-         DrawBox("Prem_Box", rangeStart, activeHi, time[0], g_currentEqPrice, InpPremiumColor, true);
-         // Discount Box (0% to 50%)
-         DrawBox("Disc_Box", rangeStart, g_currentEqPrice, time[0], activeLo, InpDiscountColor, true);
+         // Dotted non-filled outline boxes (zero candle obstruction)
+         DrawBox("Prem_Box", rangeStart, activeHi, time[0], g_currentEqPrice, InpPremiumColor, false);
+         DrawBox("Disc_Box", rangeStart, g_currentEqPrice, time[0], activeLo, InpDiscountColor, false);
 
          // Equilibrium 50% Line
          string eqLineName = prefix + "Eq_Line";

@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "Antigravity AI"
 #property link        "https://antigravity.ai"
-#property version     "2.50"
-#property description "XAUUSD MTF RSI Trend Pulse Suite: RSI 14, EMA 9, WMA 45, HUD Dashboard, Divergence Lines & MTF Zones"
+#property version     "2.55"
+#property description "XAUUSD MTF RSI Trend Pulse Suite: RSI 14, EMA 9, WMA 45, Clean Pane HUD, Divergence Lines & MTF Zones"
 #property indicator_separate_window
 #property indicator_buffers 7
 #property indicator_plots   7
@@ -42,27 +42,27 @@
 #property indicator_width3  2
 
 //--- Plot 4: HTF Bull + M15 Wait Zone (45)
-#property indicator_label4  "HTF Bull + M15 Wait Zone (45)"
+#property indicator_label4  "HTF Bull (45)"
 #property indicator_type4   DRAW_LINE
 #property indicator_color4  clrSpringGreen
 #property indicator_style4  STYLE_SOLID
 #property indicator_width4  2
 
 //--- Plot 5: HTF Bear + M15 Wait Zone (55)
-#property indicator_label5  "HTF Bear + M15 Wait Zone (55)"
+#property indicator_label5  "HTF Bear (55)"
 #property indicator_type5   DRAW_LINE
 #property indicator_color5  clrRed
 #property indicator_style5  STYLE_SOLID
 #property indicator_width5  2
 
 //--- Plot 6: M5 Bull Momentum Confirm
-#property indicator_label6  "M5 Bull Momentum Confirm"
+#property indicator_label6  "Bull Momentum"
 #property indicator_type6   DRAW_ARROW
 #property indicator_color6  clrSpringGreen
 #property indicator_width6  2
 
 //--- Plot 7: M5 Bear Momentum Confirm
-#property indicator_label7  "M5 Bear Momentum Confirm"
+#property indicator_label7  "Bear Momentum"
 #property indicator_type7   DRAW_ARROW
 #property indicator_color7  clrRed
 #property indicator_width7  2
@@ -123,6 +123,12 @@ int OnInit()
 
    PlotIndexSetInteger(5, PLOT_ARROW, 233); // Wingdings Up Arrow
    PlotIndexSetInteger(6, PLOT_ARROW, 234); // Wingdings Down Arrow
+
+   // Hide internal / trigger buffers from subwindow header
+   PlotIndexSetInteger(3, PLOT_SHOW_DATA, false);
+   PlotIndexSetInteger(4, PLOT_SHOW_DATA, false);
+   PlotIndexSetInteger(5, PLOT_SHOW_DATA, false);
+   PlotIndexSetInteger(6, PLOT_SHOW_DATA, false);
 
    for(int i = 0; i < 7; i++)
    {
@@ -215,17 +221,19 @@ bool GetHtfPulse(ENUM_TIMEFRAMES tf, double &out_r, double &out_e, double &out_w
 }
 
 //+------------------------------------------------------------------+
-//| Helper: Draw Divergence Trend Line on RSI Subwindow              |
+//| Helper: Draw Divergence Trendline on Subwindow                   |
 //+------------------------------------------------------------------+
-void DrawDivLine(string name, datetime t1, double v1, datetime t2, double v2, color clr)
+void DrawDivLine(string name, datetime t1, double p1, datetime t2, double p2, color clr)
 {
    if(!InpDrawDivLines) return;
+
+   int subwindow = ChartWindowFind(0, "RSI Trend Pulse MTF Unleashed (" + _Symbol + ")");
+   if(subwindow < 0) subwindow = 1;
+
    string objName = prefix + name;
    if(ObjectFind(0, objName) < 0)
    {
-      int subwindow = ChartWindowFind(0, "RSI Trend Pulse MTF Unleashed (" + _Symbol + ")");
-      if(subwindow < 0) subwindow = 1;
-      ObjectCreate(0, objName, OBJ_TREND, subwindow, t1, v1, t2, v2);
+      ObjectCreate(0, objName, OBJ_TREND, subwindow, t1, p1, t2, p2);
       ObjectSetInteger(0, objName, OBJPROP_COLOR, clr);
       ObjectSetInteger(0, objName, OBJPROP_STYLE, STYLE_SOLID);
       ObjectSetInteger(0, objName, OBJPROP_WIDTH, 2);
@@ -234,7 +242,7 @@ void DrawDivLine(string name, datetime t1, double v1, datetime t2, double v2, co
 }
 
 //+------------------------------------------------------------------+
-//| Helper: Render Subwindow Status HUD                              |
+//| Helper: Render Subwindow Status HUD - Compact Dark Badge         |
 //+------------------------------------------------------------------+
 void RenderPaneHUD(bool b4_up, bool b4_dn, double sp4, double sl4,
                    bool b1_up, bool b1_dn, double sp1, double sl1,
@@ -245,29 +253,50 @@ void RenderPaneHUD(bool b4_up, bool b4_dn, double sp4, double sl4,
    int subwindow = ChartWindowFind(0, "RSI Trend Pulse MTF Unleashed (" + _Symbol + ")");
    if(subwindow < 0) subwindow = 1;
 
-   string lines[4];
-   lines[0] = StringFormat("H4 Pulse : %s (Spread: %.1f | Slope: %.3f)", b4_up ? "BULL" : (b4_dn ? "BEAR" : "CHOP"), sp4, sl4);
-   lines[1] = StringFormat("H1 Pulse : %s (Spread: %.1f | Slope: %.3f)", b1_up ? "BULL" : (b1_dn ? "BEAR" : "CHOP"), sp1, sl1);
-   lines[2] = StringFormat("M15 Wait : %s (RSI: %.1f | WMA: %.1f)", m15_up ? "WAIT BUY (40-50)" : (m15_dn ? "WAIT SELL (50-60)" : "OUTSIDE ZONE"), r15, w15);
-   lines[3] = StringFormat("M5 State : LatchUp=%s | LatchDn=%s", latch_up ? "TRUE" : "FALSE", latch_dn ? "TRUE" : "FALSE");
+   int bgX = 10;
+   int bgY = 24;
+   int bgW = 260;
+   int bgH = 56;
 
-   int startY = 15;
-   for(int i = 0; i < 4; i++)
+   string bgName = prefix + "Pane_BG";
+   if(ObjectFind(0, bgName) < 0)
+   {
+      ObjectCreate(0, bgName, OBJ_RECTANGLE_LABEL, subwindow, 0, 0);
+      ObjectSetInteger(0, bgName, OBJPROP_BGCOLOR, C'15,18,24');
+      ObjectSetInteger(0, bgName, OBJPROP_BORDER_COLOR, C'45,55,72');
+      ObjectSetInteger(0, bgName, OBJPROP_BORDER_TYPE, BORDER_FLAT);
+      ObjectSetInteger(0, bgName, OBJPROP_BACK, false);
+   }
+   ObjectSetInteger(0, bgName, OBJPROP_CORNER, InpHUDCorner);
+   ObjectSetInteger(0, bgName, OBJPROP_XDISTANCE, bgX);
+   ObjectSetInteger(0, bgName, OBJPROP_YDISTANCE, bgY);
+   ObjectSetInteger(0, bgName, OBJPROP_XSIZE, bgW);
+   ObjectSetInteger(0, bgName, OBJPROP_YSIZE, bgH);
+
+   string lines[3];
+   lines[0] = StringFormat("H4: %s (Sp:%.1f) | H1: %s (Sp:%.1f)", b4_up ? "BULL" : (b4_dn ? "BEAR" : "CHOP"), sp4, b1_up ? "BULL" : (b1_dn ? "BEAR" : "CHOP"), sp1);
+   lines[1] = StringFormat("M15: %s [RSI: %.1f | WMA: %.1f]", m15_up ? "WAIT BUY (40-50)" : (m15_dn ? "WAIT SELL (50-60)" : "OUTSIDE"), r15, w15);
+   lines[2] = StringFormat("M5 State: LatchUp=%s | LatchDn=%s", latch_up ? "ON" : "OFF", latch_dn ? "ON" : "OFF");
+
+   int startY = bgY + 4;
+   for(int i = 0; i < 3; i++)
    {
       string lblName = prefix + "HUD_" + IntegerToString(i);
       if(ObjectFind(0, lblName) < 0)
       {
          ObjectCreate(0, lblName, OBJ_LABEL, subwindow, 0, 0);
-         ObjectSetInteger(0, lblName, OBJPROP_CORNER, InpHUDCorner);
-         ObjectSetInteger(0, lblName, OBJPROP_XDISTANCE, 15);
-         ObjectSetInteger(0, lblName, OBJPROP_YDISTANCE, startY + (i * 15));
-         ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI Bold");
+         ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI Semibold");
          ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 8);
+         ObjectSetInteger(0, lblName, OBJPROP_BACK, false);
       }
+      ObjectSetInteger(0, lblName, OBJPROP_CORNER, InpHUDCorner);
+      ObjectSetInteger(0, lblName, OBJPROP_XDISTANCE, bgX + 8);
+      ObjectSetInteger(0, lblName, OBJPROP_YDISTANCE, startY + (i * 15));
+
       color clr = InpHUDColor;
-      if(i == 0) clr = b4_up ? clrSpringGreen : (b4_dn ? clrTomato : clrGray);
-      if(i == 1) clr = b1_up ? clrSpringGreen : (b1_dn ? clrTomato : clrGray);
-      if(i == 2) clr = (m15_up || m15_dn) ? clrGold : clrLightSlateGray;
+      if(i == 0) clr = (b4_up && b1_up) ? clrSpringGreen : ((b4_dn && b1_dn) ? clrTomato : clrYellow);
+      if(i == 1) clr = (m15_up || m15_dn) ? clrGold : clrLightSlateGray;
+      if(i == 2) clr = (latch_up || latch_dn) ? clrCyan : clrWhite;
       ObjectSetString(0, lblName, OBJPROP_TEXT, lines[i]);
       ObjectSetInteger(0, lblName, OBJPROP_COLOR, clr);
    }
@@ -426,7 +455,6 @@ int OnCalculate(const int rates_total,
       latch_up           = true;
       lock_u_bar         = rates_total;
 
-      // Draw Visual Divergence Line on RSI Pane
       if(kl1_r > 0 && kl2_r > 0)
       {
          string divName = StringFormat("Div_Bull_%s", TimeToString(time[kl2_r]));
@@ -438,7 +466,7 @@ int OnCalculate(const int rates_total,
          lastAlertTime = time[0];
          string typeStr = isRegBull ? "Regular Bullish Divergence" : (isHidBull ? "Hidden Bullish Divergence" : "RSI Double Bottom");
          string msg = StringFormat("[RSI Pulse] XAUUSD M5 Momentum Confirmed: %s @ %s", typeStr, TimeToString(time[1]));
-         if(InpEnablePopup) Alert(msg);
+         if(!MQLInfoInteger(MQL_TESTER) && InpEnablePopup) Alert(msg);
          if(InpEnableSound) PlaySound("alert.wav");
          if(InpEnablePush)  SendNotification(msg);
          if(InpEnableEmail) SendMail("RSI Trend Pulse Alert", msg);
@@ -462,7 +490,7 @@ int OnCalculate(const int rates_total,
          lastAlertTime = time[0];
          string typeStr = isRegBear ? "Regular Bearish Divergence" : (isHidBear ? "Hidden Bearish Divergence" : "RSI Double Top");
          string msg = StringFormat("[RSI Pulse] XAUUSD M5 Momentum Confirmed: %s @ %s", typeStr, TimeToString(time[1]));
-         if(InpEnablePopup) Alert(msg);
+         if(!MQLInfoInteger(MQL_TESTER) && InpEnablePopup) Alert(msg);
          if(InpEnableSound) PlaySound("alert.wav");
          if(InpEnablePush)  SendNotification(msg);
          if(InpEnableEmail) SendMail("RSI Trend Pulse Alert", msg);

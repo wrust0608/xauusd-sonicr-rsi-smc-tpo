@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "Antigravity AI"
 #property link        "https://antigravity.ai"
-#property version     "2.50"
-#property description "XAUUSD Time Price Opportunity (TPO) Market Profile Suite: S1/S2/S3 VN Sessions, 70% Value Area, POC, Initial Balance, Single Prints, Poor High/Low & HUD"
+#property version     "2.55"
+#property description "XAUUSD Time Price Opportunity (TPO) Market Profile Suite: S1/S2/S3 VN Sessions, 70% Value Area, POC, Initial Balance, Clean HUD & Non-Cluttering Density"
 #property indicator_chart_window
 #property indicator_buffers 3
 #property indicator_plots   3
@@ -28,7 +28,7 @@
 //--- Plot 3: VAL (Value Area Low)
 #property indicator_label3  "Session VAL"
 #property indicator_type3   DRAW_LINE
-#property indicator_color3  clrRoyalBlue
+#property indicator_color2  clrRoyalBlue
 #property indicator_style3  STYLE_DASH
 #property indicator_width3  1
 
@@ -38,7 +38,7 @@ input double   InpRowHeight        = 0.50;          // TPO Price Row Height (Gol
 input int      InpHistoryDays      = 5;             // Number of Days to Profile
 input double   InpValueAreaPct     = 70.0;          // Value Area Percentage (Standard = 70.0%)
 input bool     InpDrawHistogram    = true;          // Render TPO Distribution Histogram Bars
-input int      InpMaxHistBarsWidth = 20;            // Max Bar Width for TPO Histogram (in candles)
+input int      InpMaxHistBarsWidth = 12;            // Max Bar Width for TPO Histogram (in candles)
 
 input group "=== 2. Session Definition (Vietnam Time Schedule) ==="
 input int      InpTimeShiftHours   = 5;             // Time Shift (VN Time - Server Time, Exness UTC+0 = 7, UTC+2 = 5)
@@ -57,20 +57,20 @@ input color    InpPoorHighColor    = clrTomato;     // Poor High Label Color
 input color    InpPoorLowColor     = clrSpringGreen;// Poor Low Label Color
 
 input group "=== 4. Session Colors ==="
-input color    InpAsianVAColor     = C'235,242,255';// S1 Asian VA Box Color
-input color    InpLondonVAColor    = C'232,248,232';// S2 London VA Box Color
-input color    InpNYVAColor        = C'255,238,230';// S3 New York VA Box Color
-input color    InpAsianHistColor   = clrSteelBlue;  // S1 Histogram Color
-input color    InpLondonHistColor  = clrSeaGreen;   // S2 Histogram Color
-input color    InpNYHistColor      = clrDarkSalmon; // S3 Histogram Color
+input color    InpAsianVAColor     = clrDodgerBlue; // S1 Asian VA Border
+input color    InpLondonVAColor    = clrSeaGreen;   // S2 London VA Border
+input color    InpNYVAColor        = clrDarkSalmon; // S3 New York VA Border
+input color    InpAsianHistColor   = C'18,28,42';  // S1 Histogram Bar
+input color    InpLondonHistColor  = C'18,36,28';   // S2 Histogram Bar
+input color    InpNYHistColor      = C'40,22,22';  // S3 Histogram Bar
 
 input group "=== 5. Visual HUD Dashboard ==="
 input bool     InpShowHUD          = true;          // Show TPO Status Dashboard
-input int      InpHUDCorner        = 1;             // HUD Corner (0 = Top-Left, 1 = Top-Right)
+input int      InpHUDCorner        = 1;             // HUD Corner (1 = Top-Right, 0 = Top-Left)
 input color    InpHUDColor         = clrWhite;      // HUD Text Color
 
 input group "=== 6. Multi-Channel Alert Settings ==="
-input bool     InpEnablePopup      = true;          // Enable Pop-up Alerts
+input bool     InpEnablePopup      = false;          // Enable Pop-up Alerts
 input bool     InpEnableSound      = true;          // Enable Sound Alerts
 input bool     InpEnablePush       = false;         // Enable Push Notification (Phone)
 input bool     InpEnableEmail      = false;         // Enable Email Alerts
@@ -124,7 +124,7 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void TriggerAlert(string text)
 {
-   if(InpEnablePopup) Alert(text);
+   if(!MQLInfoInteger(MQL_TESTER) && InpEnablePopup) Alert(text);
    if(InpEnableSound) PlaySound("alert.wav");
    if(InpEnablePush)  SendNotification(text);
    if(InpEnableEmail) SendMail("TPO Session Alert", text);
@@ -142,56 +142,58 @@ MqlDateTime ServerToVN(datetime srvTime)
 }
 
 //+------------------------------------------------------------------+
-//| Render HUD Dashboard                                             |
+//| Render HUD Dashboard - Compact Top-Right Dock                    |
 //+------------------------------------------------------------------+
 void UpdateHUD(double curPrice)
 {
    if(!InpShowHUD) return;
 
+   int startX = 15;
+   int startY = 110; // Docked below Sonic R HUD in Top-Right
+   int width  = 210;
+   int height = 72;
+
    string bgName = prefix + "HUD_BG";
    if(ObjectFind(0, bgName) < 0)
    {
       ObjectCreate(0, bgName, OBJ_RECTANGLE_LABEL, 0, 0, 0);
-      ObjectSetInteger(0, bgName, OBJPROP_CORNER, InpHUDCorner);
-      ObjectSetInteger(0, bgName, OBJPROP_XDISTANCE, 20);
-      ObjectSetInteger(0, bgName, OBJPROP_YDISTANCE, 25);
-      ObjectSetInteger(0, bgName, OBJPROP_XSIZE, 240);
-      ObjectSetInteger(0, bgName, OBJPROP_YSIZE, 140);
-      ObjectSetInteger(0, bgName, OBJPROP_BGCOLOR, C'20,24,32');
-      ObjectSetInteger(0, bgName, OBJPROP_BORDER_COLOR, clrLightSlateGray);
+      ObjectSetInteger(0, bgName, OBJPROP_BGCOLOR, C'15,18,24');
+      ObjectSetInteger(0, bgName, OBJPROP_BORDER_COLOR, C'45,55,72');
       ObjectSetInteger(0, bgName, OBJPROP_BORDER_TYPE, BORDER_FLAT);
       ObjectSetInteger(0, bgName, OBJPROP_BACK, false);
    }
+   ObjectSetInteger(0, bgName, OBJPROP_CORNER, CORNER_RIGHT_UPPER);
+   ObjectSetInteger(0, bgName, OBJPROP_XDISTANCE, startX);
+   ObjectSetInteger(0, bgName, OBJPROP_YDISTANCE, startY);
+   ObjectSetInteger(0, bgName, OBJPROP_XSIZE, width);
+   ObjectSetInteger(0, bgName, OBJPROP_YSIZE, height);
 
-   string lines[6];
-   lines[0] = "=== TPO MARKET PROFILE HUD ===";
-   lines[1] = StringFormat("Active Session: %s", g_activeSessionName);
-   lines[2] = StringFormat("Session POC: %.2f", g_activePOC);
-   lines[3] = StringFormat("Value Area: %.2f - %.2f (70%%)", g_activeVAL, g_activeVAH);
-   lines[4] = StringFormat("Initial Balance: %.2f - %.2f", g_activeIBLow, g_activeIBHigh);
-   lines[5] = StringFormat("Auction Status: %s", g_activeAuctionState);
+   string lines[4];
+   lines[0] = "TPO MARKET PROFILE";
+   lines[1] = StringFormat("Session: %s | %s", g_activeSessionName, g_activeAuctionState);
+   lines[2] = StringFormat("POC: %.2f | IB: %.1f-%.1f", g_activePOC, g_activeIBLow, g_activeIBHigh);
+   lines[3] = StringFormat("VA (70%%): %.1f - %.1f", g_activeVAL, g_activeVAH);
 
-   color lineClrs[6];
-   lineClrs[0] = clrGold;
-   lineClrs[1] = clrCyan;
+   color lineClrs[4];
+   lineClrs[0] = clrCyan;
+   lineClrs[1] = clrWhite;
    lineClrs[2] = clrMagenta;
-   lineClrs[3] = clrDodgerBlue;
-   lineClrs[4] = clrOrange;
-   lineClrs[5] = (curPrice > g_activeVAH) ? clrSpringGreen : (curPrice < g_activeVAL) ? clrCrimson : clrYellow;
+   lineClrs[3] = (curPrice > g_activeVAH) ? clrSpringGreen : (curPrice < g_activeVAL) ? clrTomato : clrYellow;
 
-   for(int k = 0; k < 6; k++)
+   for(int k = 0; k < 4; k++)
    {
       string lblName = prefix + "HUD_Txt_" + IntegerToString(k);
       if(ObjectFind(0, lblName) < 0)
       {
          ObjectCreate(0, lblName, OBJ_LABEL, 0, 0, 0);
-         ObjectSetInteger(0, lblName, OBJPROP_CORNER, InpHUDCorner);
-         ObjectSetInteger(0, lblName, OBJPROP_XDISTANCE, 30);
-         ObjectSetInteger(0, lblName, OBJPROP_YDISTANCE, 35 + k * 18);
-         ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI Semibold");
+         ObjectSetString(0, lblName, OBJPROP_FONT, (k == 0) ? "Segoe UI Bold" : "Segoe UI Semibold");
          ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 8);
          ObjectSetInteger(0, lblName, OBJPROP_BACK, false);
       }
+      ObjectSetInteger(0, lblName, OBJPROP_CORNER, CORNER_RIGHT_UPPER);
+      ObjectSetInteger(0, lblName, OBJPROP_ANCHOR, ANCHOR_LEFT_UPPER);
+      ObjectSetInteger(0, lblName, OBJPROP_XDISTANCE, startX + width - 10);
+      ObjectSetInteger(0, lblName, OBJPROP_YDISTANCE, startY + 6 + (k * 15));
       ObjectSetString(0, lblName, OBJPROP_TEXT, lines[k]);
       ObjectSetInteger(0, lblName, OBJPROP_COLOR, lineClrs[k]);
    }
@@ -199,14 +201,12 @@ void UpdateHUD(double curPrice)
 
 //+------------------------------------------------------------------+
 //| Calculate Value Area using strict 70% Outward Expansion Algorithm |
-//| from Knowledge Base 05_TPO_MARKET_PROFILE_AND_USER_SPEC.md       |
 //+------------------------------------------------------------------+
 void CalculateValueArea(const int &tpoCounts[], int numBins, double minPrice, double rowStep, double vaPct,
                         double &outPOC, double &outVAH, double &outVAL, int &pocIdx, int &valIdx, int &vahIdx)
 {
    if(numBins <= 0) return;
 
-   // 1. Locate POC index (maximum TPO count)
    int maxCount = -1;
    pocIdx = 0;
    int totalTPO = 0;
@@ -236,7 +236,6 @@ void CalculateValueArea(const int &tpoCounts[], int numBins, double minPrice, do
    int lowIdx    = pocIdx;
    int highIdx   = pocIdx;
 
-   // 2. Strict outward expansion loop with official tie-breaker
    while(covered < targetTPO)
    {
       bool has_up   = (highIdx + 1 < numBins);
@@ -254,7 +253,7 @@ void CalculateValueArea(const int &tpoCounts[], int numBins, double minPrice, do
          lowIdx--;
          covered += tpoCounts[lowIdx];
       }
-      else // Both candidates exist
+      else
       {
          int countUp   = tpoCounts[highIdx + 1];
          int countDown = tpoCounts[lowIdx - 1];
@@ -269,7 +268,7 @@ void CalculateValueArea(const int &tpoCounts[], int numBins, double minPrice, do
             lowIdx--;
             covered += tpoCounts[lowIdx];
          }
-         else // Tie in counts: compare distance to POC
+         else
          {
             int distUp   = MathAbs((highIdx + 1) - pocIdx);
             int distDown = MathAbs((lowIdx - 1) - pocIdx);
@@ -284,7 +283,7 @@ void CalculateValueArea(const int &tpoCounts[], int numBins, double minPrice, do
                lowIdx--;
                covered += tpoCounts[lowIdx];
             }
-            else // Both counts and distances are equal: UPPER candidate wins!
+            else
             {
                highIdx++;
                covered += tpoCounts[highIdx];
@@ -324,7 +323,6 @@ int OnCalculate(const int rates_total,
    ArraySetAsSeries(BufferVAH, true);
    ArraySetAsSeries(BufferVAL, true);
 
-   // Clear recent buffer slots
    for(int i = 0; i < 50 && i < rates_total; i++)
    {
       BufferPOC[i] = EMPTY_VALUE;
@@ -335,9 +333,9 @@ int OnCalculate(const int rates_total,
    int maxBars = InpHistoryDays * 1440 / (PeriodSeconds() / 60);
    if(maxBars > rates_total - 1) maxBars = rates_total - 1;
 
-   // Process sessions by scanning backwards
-   // Identify session blocks
    int idx = 0;
+   int sessionCount = 0;
+
    while(idx < maxBars)
    {
       MqlDateTime dt = ServerToVN(time[idx]);
@@ -358,7 +356,7 @@ int OnCalculate(const int rates_total,
          sessHistClr = InpAsianHistColor;
          isSession   = true;
       }
-      // S2: London (15:00 to 19:59 VN, or 14:00 to 18:59 Summer)
+      // S2: London (15:00 to 19:59 VN)
       int lonStart = InpAutoSummerDST ? 840 : 900;
       int lonEnd   = InpAutoSummerDST ? 1139 : 1199;
       if(InpShowLondon && totalMinutes >= lonStart && totalMinutes <= lonEnd)
@@ -368,7 +366,7 @@ int OnCalculate(const int rates_total,
          sessHistClr = InpLondonHistColor;
          isSession   = true;
       }
-      // S3: NY (20:00 to 05:59 VN, or 19:00 to 05:59 Summer)
+      // S3: NY (20:00 to 05:59 VN)
       int nyStart = InpAutoSummerDST ? 1140 : 1200;
       if(InpShowNY && (totalMinutes >= nyStart || totalMinutes <= 359))
       {
@@ -384,125 +382,106 @@ int OnCalculate(const int rates_total,
          continue;
       }
 
-      // Found the latest bar of a session, now find its start (earlier in time, larger index)
-      int endIdx   = idx;
       int startIdx = idx;
-
       while(startIdx + 1 < maxBars)
       {
-         MqlDateTime nextDt = ServerToVN(time[startIdx + 1]);
-         int nextMinutes = nextDt.hour * 60 + nextDt.min;
-         bool sameSession = false;
+         MqlDateTime dtNext = ServerToVN(time[startIdx + 1]);
+         int nextMins = dtNext.hour * 60 + dtNext.min;
 
-         if(sessName == "S1_Asian" && nextMinutes >= 360 && nextMinutes <= 899) sameSession = true;
-         if(sessName == "S2_London" && nextMinutes >= lonStart && nextMinutes <= lonEnd) sameSession = true;
-         if(sessName == "S3_NewYork" && (nextMinutes >= nyStart || nextMinutes <= 359))
-         {
-            // For NY, make sure we don't bleed across days into next evening
-            if(MathAbs((int)(time[startIdx] - time[startIdx + 1])) <= 3600) sameSession = true;
-         }
+         bool sameSess = false;
+         if(sessName == "S1_Asian"   && nextMins >= 360 && nextMins <= 899) sameSess = true;
+         if(sessName == "S2_London"  && nextMins >= lonStart && nextMins <= lonEnd) sameSess = true;
+         if(sessName == "S3_NewYork" && (nextMins >= nyStart || nextMins <= 359)) sameSess = true;
 
-         if(!sameSession) break;
-         startIdx++;
+         if(sameSess) startIdx++;
+         else break;
       }
 
-      // Calculate Profile for this session span [endIdx ... startIdx]
-      double minP = 1000000.0, maxP = -1.0;
-      for(int b = endIdx; b <= startIdx; b++)
+      int endIdx = idx;
+      datetime tStart = time[startIdx];
+      datetime tEnd   = time[endIdx];
+
+      double minP = 1000000.0;
+      double maxP = 0.0;
+      for(int b = startIdx; b >= endIdx; b--)
       {
-         if(low[b] < minP)   minP = low[b];
+         if(low[b]  < minP) minP = low[b];
          if(high[b] > maxP) maxP = high[b];
       }
 
-      int numBins = (int)MathCeil((maxP - minP) / InpRowHeight) + 2;
-      if(numBins > 1 && numBins < 4000)
+      int numBins = (int)MathCeil((maxP - minP) / InpRowHeight) + 1;
+      if(numBins > 0 && numBins < 1500)
       {
+         sessionCount++;
          int tpoCounts[];
          ArrayResize(tpoCounts, numBins);
          ArrayInitialize(tpoCounts, 0);
 
-         // Populate TPO counts
-         for(int b = endIdx; b <= startIdx; b++)
-         {
-            int loBin = (int)MathFloor((low[b] - minP) / InpRowHeight);
-            int hiBin = (int)MathFloor((high[b] - minP) / InpRowHeight);
-            if(loBin < 0) loBin = 0;
-            if(hiBin >= numBins) hiBin = numBins - 1;
+         double ibHigh = 0.0, ibLow = 1000000.0;
+         int ibEndIdx = startIdx;
+         int barsPerHour = 3600 / PeriodSeconds();
+         int ibBarLimit  = startIdx - barsPerHour;
+         if(ibBarLimit < endIdx) ibBarLimit = endIdx;
 
-            for(int bin = loBin; bin <= hiBin; bin++)
+         for(int b = startIdx; b >= endIdx; b--)
+         {
+            int bLowBin  = (int)MathFloor((low[b]  - minP) / InpRowHeight);
+            int bHighBin = (int)MathFloor((high[b] - minP) / InpRowHeight);
+
+            if(bLowBin  < 0) bLowBin  = 0;
+            if(bHighBin >= numBins) bHighBin = numBins - 1;
+
+            for(int bin = bLowBin; bin <= bHighBin; bin++)
             {
                tpoCounts[bin]++;
             }
+
+            if(b >= ibBarLimit)
+            {
+               if(high[b] > ibHigh) ibHigh = high[b];
+               if(low[b]  < ibLow)  ibLow  = low[b];
+               ibEndIdx = b;
+            }
          }
 
-         // Calculate POC & Value Area
          double poc = 0.0, vah = 0.0, val = 0.0;
          int pocIdx = 0, valIdx = 0, vahIdx = 0;
          CalculateValueArea(tpoCounts, numBins, minP, InpRowHeight, InpValueAreaPct, poc, vah, val, pocIdx, valIdx, vahIdx);
 
-         // Initial Balance (First 1 Hour of Session = startIdx to startIdx - (60 / periodMins))
-         int ibBars = (int)MathRound(60.0 / (PeriodSeconds() / 60.0));
-         int ibEndIdx = startIdx - ibBars;
-         if(ibEndIdx < endIdx) ibEndIdx = endIdx;
-
-         double ibHigh = -1.0, ibLow = 1000000.0;
-         for(int b = ibEndIdx; b <= startIdx; b++)
+         if(endIdx <= 1)
          {
-            if(high[b] > ibHigh) ibHigh = high[b];
-            if(low[b]  < ibLow)  ibLow  = low[b];
-         }
-
-         datetime tStart = time[startIdx];
-         datetime tEnd   = time[endIdx];
-
-         // Set buffers for current active session
-         if(endIdx == 0)
-         {
-            BufferPOC[0] = poc;
-            BufferVAH[0] = vah;
-            BufferVAL[0] = val;
-
             g_activeSessionName = sessName;
-            g_activePOC = poc;
-            g_activeVAH = vah;
-            g_activeVAL = val;
-            g_activeIBHigh = ibHigh;
-            g_activeIBLow  = ibLow;
+            g_activePOC         = poc;
+            g_activeVAH         = vah;
+            g_activeVAL         = val;
+            g_activeIBHigh      = ibHigh;
+            g_activeIBLow       = ibLow;
 
-            double cp = close[0];
-            if(cp > vah)      g_activeAuctionState = "Bullish Imbalance (Above VAH)";
-            else if(cp < val) g_activeAuctionState = "Bearish Imbalance (Below VAL)";
-            else              g_activeAuctionState = "Inside Value Area (Acceptance)";
+            double curP = close[0];
+            if(curP > vah)      g_activeAuctionState = "Bullish Extension";
+            else if(curP < val) g_activeAuctionState = "Bearish Extension";
+            else                g_activeAuctionState = "Inside Value";
 
-            // Check Alert on bar 1 close
-            if(time[1] != lastAlertTime)
+            for(int b = startIdx; b >= endIdx; b--)
             {
-               if(close[1] > vah && close[2] <= vah)
-               {
-                  TriggerAlert(StringFormat("[TPO ALERT] %s: Bullish Expansion above %s VAH %.2f", _Symbol, sessName, vah));
-                  lastAlertTime = time[1];
-               }
-               else if(close[1] < val && close[2] >= val)
-               {
-                  TriggerAlert(StringFormat("[TPO ALERT] %s: Bearish Breakdown below %s VAL %.2f", _Symbol, sessName, val));
-                  lastAlertTime = time[1];
-               }
+               BufferPOC[b] = poc;
+               BufferVAH[b] = vah;
+               BufferVAL[b] = val;
             }
          }
 
          // Render Graphic Objects
          string sessionID = sessName + "_" + TimeToString(tStart);
 
-         // 1. Value Area Shaded Box
+         // 1. Value Area Frame (Non-filled dashed boundary for clean chart)
          string vaBoxName = prefix + "VABox_" + sessionID;
          if(ObjectFind(0, vaBoxName) < 0)
          {
             ObjectCreate(0, vaBoxName, OBJ_RECTANGLE, 0, tStart, vah, tEnd, val);
             ObjectSetInteger(0, vaBoxName, OBJPROP_COLOR, sessVAClr);
-            ObjectSetInteger(0, vaBoxName, OBJPROP_BGCOLOR, sessVAClr);
-            ObjectSetInteger(0, vaBoxName, OBJPROP_STYLE, STYLE_SOLID);
+            ObjectSetInteger(0, vaBoxName, OBJPROP_STYLE, STYLE_DASH);
             ObjectSetInteger(0, vaBoxName, OBJPROP_WIDTH, 1);
-            ObjectSetInteger(0, vaBoxName, OBJPROP_FILL, true);
+            ObjectSetInteger(0, vaBoxName, OBJPROP_FILL, false);
             ObjectSetInteger(0, vaBoxName, OBJPROP_BACK, true);
          }
          else
@@ -524,7 +503,7 @@ int OnCalculate(const int rates_total,
             ObjectCreate(0, pocLbl, OBJ_TEXT, 0, tEnd, poc);
             ObjectSetString(0, pocLbl, OBJPROP_TEXT, StringFormat("%s POC: %.2f", sessName, poc));
             ObjectSetInteger(0, pocLbl, OBJPROP_COLOR, clrMagenta);
-            ObjectSetString(0, pocLbl, OBJPROP_FONT, "Arial Bold");
+            ObjectSetString(0, pocLbl, OBJPROP_FONT, "Segoe UI Semibold");
             ObjectSetInteger(0, pocLbl, OBJPROP_FONTSIZE, 8);
          }
          else
@@ -533,7 +512,7 @@ int OnCalculate(const int rates_total,
             ObjectSetInteger(0, pocLineName + "_lbl", OBJPROP_TIME, tEnd);
          }
 
-         // 3. Initial Balance Box (First 1 Hour)
+         // 3. Initial Balance Box
          if(InpShowIB && ibHigh > 0 && ibLow < 1000000.0)
          {
             string ibBoxName = prefix + "IB_" + sessionID;
@@ -556,39 +535,37 @@ int OnCalculate(const int rates_total,
             int btmBin = 1;
             while(btmBin < numBins && tpoCounts[btmBin] == 0) btmBin++;
 
-            // Poor High: Top extreme has count >= 2 (no excess single prints)
             if(tpoCounts[topBin] >= 2)
             {
                string phName = prefix + "PoorHi_" + sessionID;
                if(ObjectFind(0, phName) < 0)
                {
                   ObjectCreate(0, phName, OBJ_TEXT, 0, tStart + (datetime)((tEnd - tStart) / 2), maxP);
-                  ObjectSetString(0, phName, OBJPROP_TEXT, "POOR HIGH (No Excess)");
+                  ObjectSetString(0, phName, OBJPROP_TEXT, "Poor Hi");
                   ObjectSetInteger(0, phName, OBJPROP_COLOR, InpPoorHighColor);
-                  ObjectSetString(0, phName, OBJPROP_FONT, "Arial Bold");
-                  ObjectSetInteger(0, phName, OBJPROP_FONTSIZE, 8);
+                  ObjectSetString(0, phName, OBJPROP_FONT, "Segoe UI Bold");
+                  ObjectSetInteger(0, phName, OBJPROP_FONTSIZE, 7);
                   ObjectSetInteger(0, phName, OBJPROP_ANCHOR, ANCHOR_LOWER);
                }
             }
 
-            // Poor Low: Bottom extreme has count >= 2 (no excess single prints)
             if(tpoCounts[btmBin] >= 2)
             {
                string plName = prefix + "PoorLo_" + sessionID;
                if(ObjectFind(0, plName) < 0)
                {
                   ObjectCreate(0, plName, OBJ_TEXT, 0, tStart + (datetime)((tEnd - tStart) / 2), minP);
-                  ObjectSetString(0, plName, OBJPROP_TEXT, "POOR LOW (No Excess)");
+                  ObjectSetString(0, plName, OBJPROP_TEXT, "Poor Lo");
                   ObjectSetInteger(0, plName, OBJPROP_COLOR, InpPoorLowColor);
-                  ObjectSetString(0, plName, OBJPROP_FONT, "Arial Bold");
-                  ObjectSetInteger(0, plName, OBJPROP_FONTSIZE, 8);
+                  ObjectSetString(0, plName, OBJPROP_FONT, "Segoe UI Bold");
+                  ObjectSetInteger(0, plName, OBJPROP_FONTSIZE, 7);
                   ObjectSetInteger(0, plName, OBJPROP_ANCHOR, ANCHOR_UPPER);
                }
             }
          }
 
-         // 5. TPO Histogram Density Rendering
-         if(InpDrawHistogram && numBins > 1)
+         // 5. TPO Histogram Density (Rendered only for recent 2 sessions to avoid chart clutter)
+         if(InpDrawHistogram && numBins > 1 && sessionCount <= 2)
          {
             int secPerBar = PeriodSeconds();
             for(int bin = 0; bin < numBins; bin++)
@@ -616,9 +593,7 @@ int OnCalculate(const int rates_total,
       idx = startIdx + 1;
    }
 
-   // Update HUD Dashboard
    UpdateHUD(close[0]);
-
    return(rates_total);
 }
 //+------------------------------------------------------------------+

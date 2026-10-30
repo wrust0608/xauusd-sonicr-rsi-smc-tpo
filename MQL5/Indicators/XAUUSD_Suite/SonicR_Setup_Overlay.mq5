@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "Antigravity AI"
 #property link        "https://antigravity.ai"
-#property version     "2.50"
-#property description "XAUUSD Sonic R Suite: Dragon Cloud, Trend 89, Macro 200, Swings, Round Numbers, HUD & MTF Signals"
+#property version     "2.55"
+#property description "XAUUSD Sonic R Suite: Dragon Cloud, Trend 89, Macro 200, Swings, Round Numbers, Clean HUD & MTF Signals"
 #property indicator_chart_window
 #property indicator_buffers 12
 #property indicator_plots   11
@@ -63,14 +63,14 @@
 //--- Plot 8: Upper Round Level
 #property indicator_label8  "Upper Round Level"
 #property indicator_type8   DRAW_LINE
-#property indicator_color8  clrLightSlateGray
+#property indicator_color8  clrDimGray
 #property indicator_style8  STYLE_DOT
 #property indicator_width8  1
 
 //--- Plot 9: Lower Round Level
 #property indicator_label9  "Lower Round Level"
 #property indicator_type9   DRAW_LINE
-#property indicator_color9  clrLightSlateGray
+#property indicator_color9  clrDimGray
 #property indicator_style9  STYLE_DOT
 #property indicator_width9  1
 
@@ -124,7 +124,7 @@ double BufferRoundHi[];
 double BufferRoundLo[];
 double BufferSignalBuy[];
 double BufferSignalSell[];
-double BufferCloud[]; // Buffer 11 (Hidden calculation buffer)
+double BufferCloud[]; // Hidden calculation buffer
 
 //--- Handles
 int handleEma34High;
@@ -267,56 +267,59 @@ bool GetHtfPulse(ENUM_TIMEFRAMES tf, double &out_r, double &out_e, double &out_w
 }
 
 //+------------------------------------------------------------------+
-//| Helper: Render On-Chart HUD Information Panel                   |
+//| Helper: Render On-Chart HUD Information Panel (Top-Right)        |
 //+------------------------------------------------------------------+
 void RenderHUD(bool htf_up, bool htf_dn, bool m15_up, bool m15_dn, double distDragon, string waveStatus)
 {
    if(!InpShowHUD) return;
 
-   int startY = (InpHUDCorner == 1) ? 175 : 25; // Offset to stack neatly below TPO HUD if in Top-Right
-   int xDist  = 20;
+   int startX = 15;
+   int startY = 15;
+   int width  = 210;
+   int height = 88;
 
    // HUD Background Box
    string bgName = prefix + "BG";
    if(ObjectFind(0, bgName) < 0)
    {
       ObjectCreate(0, bgName, OBJ_RECTANGLE_LABEL, 0, 0, 0);
-      ObjectSetInteger(0, bgName, OBJPROP_CORNER, InpHUDCorner);
-      ObjectSetInteger(0, bgName, OBJPROP_XDISTANCE, xDist);
-      ObjectSetInteger(0, bgName, OBJPROP_YDISTANCE, startY);
-      ObjectSetInteger(0, bgName, OBJPROP_XSIZE, 240);
-      ObjectSetInteger(0, bgName, OBJPROP_YSIZE, 135);
-      ObjectSetInteger(0, bgName, OBJPROP_BGCOLOR, C'20,24,32');
-      ObjectSetInteger(0, bgName, OBJPROP_BORDER_COLOR, clrLightSlateGray);
+      ObjectSetInteger(0, bgName, OBJPROP_BGCOLOR, C'15,18,24');
+      ObjectSetInteger(0, bgName, OBJPROP_BORDER_COLOR, C'45,55,72');
       ObjectSetInteger(0, bgName, OBJPROP_BORDER_TYPE, BORDER_FLAT);
       ObjectSetInteger(0, bgName, OBJPROP_BACK, false);
    }
+   ObjectSetInteger(0, bgName, OBJPROP_CORNER, CORNER_RIGHT_UPPER);
+   ObjectSetInteger(0, bgName, OBJPROP_XDISTANCE, startX);
+   ObjectSetInteger(0, bgName, OBJPROP_YDISTANCE, startY);
+   ObjectSetInteger(0, bgName, OBJPROP_XSIZE, width);
+   ObjectSetInteger(0, bgName, OBJPROP_YSIZE, height);
 
-   string lines[6];
-   lines[0] = "=== SONIC R XAUUSD HUD ===";
-   lines[1] = StringFormat("Price: %.2f | Dist to Dragon: %.2f", SymbolInfoDouble(_Symbol, SYMBOL_BID), distDragon);
-   lines[2] = StringFormat("H4 Trend Pulse: %s", htf_up ? "BULLISH (UP)" : (htf_dn ? "BEARISH (DOWN)" : "NEUTRAL/TANGLE"));
-   lines[3] = StringFormat("M15 Wait Zone : %s", m15_up ? "PULLBACK BUY (40-50)" : (m15_dn ? "PULLBACK SELL (50-60)" : "NO SETUP"));
-   lines[4] = StringFormat("M5 Wave Status: %s", waveStatus);
-   lines[5] = StringFormat("System Mode   : %s", InpTriggerMode == 0 ? "BOUNCE DRAGON" : "BREAK SWING");
+   string lines[5];
+   lines[0] = "SONIC R XAUUSD (M5)";
+   lines[1] = StringFormat("H4 Trend : %s", htf_up ? "BULLISH (UP)" : (htf_dn ? "BEARISH (DOWN)" : "NEUTRAL/TANGLE"));
+   lines[2] = StringFormat("M15 Wait : %s", m15_up ? "BUY ZONE (40-50)" : (m15_dn ? "SELL ZONE (50-60)" : "NO SETUP"));
+   lines[3] = StringFormat("M5 Wave  : %s", waveStatus);
+   lines[4] = StringFormat("Dist Dragon: %.2f pts", distDragon);
 
-   for(int i = 0; i < 6; i++)
+   for(int i = 0; i < 5; i++)
    {
       string lblName = prefix + IntegerToString(i);
       if(ObjectFind(0, lblName) < 0)
       {
          ObjectCreate(0, lblName, OBJ_LABEL, 0, 0, 0);
-         ObjectSetInteger(0, lblName, OBJPROP_CORNER, InpHUDCorner);
-         ObjectSetInteger(0, lblName, OBJPROP_XDISTANCE, xDist + 10);
-         ObjectSetInteger(0, lblName, OBJPROP_YDISTANCE, startY + 10 + (i * 18));
-         ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI Semibold");
+         ObjectSetString(0, lblName, OBJPROP_FONT, (i == 0) ? "Segoe UI Bold" : "Segoe UI Semibold");
          ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 8);
          ObjectSetInteger(0, lblName, OBJPROP_BACK, false);
       }
+      ObjectSetInteger(0, lblName, OBJPROP_CORNER, CORNER_RIGHT_UPPER);
+      ObjectSetInteger(0, lblName, OBJPROP_ANCHOR, ANCHOR_LEFT_UPPER);
+      ObjectSetInteger(0, lblName, OBJPROP_XDISTANCE, startX + width - 10);
+      ObjectSetInteger(0, lblName, OBJPROP_YDISTANCE, startY + 8 + (i * 15));
       color clr = InpHUDColor;
       if(i == 0) clr = clrGold;
-      if(i == 2) clr = htf_up ? clrSpringGreen : (htf_dn ? clrTomato : clrYellow);
-      if(i == 3) clr = (m15_up || m15_dn) ? clrGold : clrLightSlateGray;
+      if(i == 1) clr = htf_up ? clrSpringGreen : (htf_dn ? clrTomato : clrYellow);
+      if(i == 2) clr = (m15_up || m15_dn) ? clrGold : clrLightSlateGray;
+      if(i == 3) clr = (StringFind(waveStatus, "BULL") >= 0) ? clrSpringGreen : ((StringFind(waveStatus, "BEAR") >= 0) ? clrTomato : clrCyan);
       ObjectSetString(0, lblName, OBJPROP_TEXT, lines[i]);
       ObjectSetInteger(0, lblName, OBJPROP_COLOR, clr);
    }
@@ -355,9 +358,6 @@ int OnCalculate(const int rates_total,
    ArraySetAsSeries(BufferSignalBuy, true);
    ArraySetAsSeries(BufferSignalSell, true);
 
-   int to_copy = rates_total - prev_calculated + 1;
-   if(to_copy > rates_total) to_copy = rates_total;
-
    double dh[], dc[], dl[], e89[], e200[], atr[];
    ArraySetAsSeries(dh, true);
    ArraySetAsSeries(dc, true);
@@ -366,40 +366,41 @@ int OnCalculate(const int rates_total,
    ArraySetAsSeries(e200, true);
    ArraySetAsSeries(atr, true);
 
-   if(CopyBuffer(handleEma34High,  0, 0, to_copy, dh) <= 0) return(0);
-   if(CopyBuffer(handleEma34Close, 0, 0, to_copy, dc) <= 0) return(0);
-   if(CopyBuffer(handleEma34Low,   0, 0, to_copy, dl) <= 0) return(0);
-   if(CopyBuffer(handleEma89,      0, 0, to_copy, e89) <= 0) return(0);
-   if(CopyBuffer(handleEma200,     0, 0, to_copy, e200) <= 0) return(0);
-   if(CopyBuffer(handleAtr14,      0, 0, to_copy, atr) <= 0) return(0);
+   if(CopyBuffer(handleEma34High, 0, 0, rates_total, dh) <= 0) return(0);
+   if(CopyBuffer(handleEma34Close, 0, 0, rates_total, dc) <= 0) return(0);
+   if(CopyBuffer(handleEma34Low, 0, 0, rates_total, dl) <= 0) return(0);
+   if(CopyBuffer(handleEma89, 0, 0, rates_total, e89) <= 0) return(0);
+   if(CopyBuffer(handleEma200, 0, 0, rates_total, e200) <= 0) return(0);
+   if(CopyBuffer(handleAtr14, 0, 0, rates_total, atr) <= 0) return(0);
 
-   // HTF Confluence on Closed Bars
+   int limit = rates_total - prev_calculated + 10;
+   if(limit > rates_total - 1) limit = rates_total - 1;
+
+   // 1. Calculate Multi-Timeframe Trend Pulse Confluence
    double r4 = 0, e4 = 0, w4 = 0, s4 = 0;
    double r1 = 0, e1 = 0, w1 = 0, s1 = 0;
    double r15 = 0, e15 = 0, w15 = 0, s15 = 0;
 
-   bool htf_ok = GetHtfPulse(PERIOD_H4, r4, e4, w4, s4) &&
-                 GetHtfPulse(PERIOD_H1, r1, e1, w1, s1) &&
-                 GetHtfPulse(PERIOD_M15, r15, e15, w15, s15);
+   bool ok4  = GetHtfPulse(PERIOD_H4, r4, e4, w4, s4);
+   bool ok1  = GetHtfPulse(PERIOD_H1, r1, e1, w1, s1);
+   bool ok15 = GetHtfPulse(PERIOD_M15, r15, e15, w15, s15);
 
-   double sp4 = MathMax(r4, MathMax(e4, w4)) - MathMin(r4, MathMin(e4, w4));
-   double sp1 = MathMax(r1, MathMax(e1, w1)) - MathMin(r1, MathMin(e1, w1));
+   bool h4_up = ok4 && (r4 > e4 && e4 > w4) && ((r4 - w4) >= InpTangleSpread) && (s4 >= InpMinSlope);
+   bool h4_dn = ok4 && (r4 < e4 && e4 < w4) && ((w4 - r4) >= InpTangleSpread) && (s4 <= -InpMinSlope);
 
-   bool htf_up = htf_ok && (r4 > w4 && e4 > w4 && s4 >= InpMinSlope && sp4 >= InpTangleSpread) &&
-                 ((InpStrictHtf ? (r1 > w1) : true) && e1 >= w1 && s1 >= InpMinSlope && sp1 >= InpTangleSpread);
+   bool h1_up = ok1 && (r1 > e1 && e1 > w1) && ((r1 - w1) >= InpTangleSpread) && (s1 >= InpMinSlope);
+   bool h1_dn = ok1 && (r1 < e1 && e1 < w1) && ((w1 - r1) >= InpTangleSpread) && (s1 <= -InpMinSlope);
 
-   bool htf_dn = htf_ok && (r4 < w4 && e4 < w4 && s4 <= -InpMinSlope && sp4 >= InpTangleSpread) &&
-                 ((InpStrictHtf ? (r1 < w1) : true) && e1 <= w1 && s1 <= -InpMinSlope && sp1 >= InpTangleSpread);
+   bool htf_up = InpStrictHtf ? (h4_up && h1_up) : h4_up;
+   bool htf_dn = InpStrictHtf ? (h4_dn && h1_dn) : h4_dn;
 
-   bool m15_up = htf_ok && (((40.0 <= r15 && r15 <= 50.0) || MathAbs(r15 - w15) <= InpW45Tolerance) && (38.0 <= r15 && r15 < 70.0));
-   bool m15_dn = htf_ok && (((50.0 <= r15 && r15 <= 60.0) || MathAbs(r15 - w15) <= InpW45Tolerance) && (30.0 < r15 && r15 <= 62.0));
+   bool m15_up = ok15 && (r15 >= 40.0 && r15 <= 50.0) && (MathAbs(r15 - w15) <= InpW45Tolerance);
+   bool m15_dn = ok15 && (r15 >= 50.0 && r15 <= 60.0) && (MathAbs(r15 - w15) <= InpW45Tolerance);
 
-   int limit = rates_total - prev_calculated;
-   if(limit <= 0) limit = 1;
-
+   // 2. Main Loop for M5 Indicators and Execution
    string waveStr = "SEARCHING WAVE";
 
-   for(int i = limit - 1; i >= 0; i--)
+   for(int i = limit; i >= 0; i--)
    {
       BufferDh[i]   = dh[i];
       BufferDc[i]   = dc[i];
@@ -407,42 +408,34 @@ int OnCalculate(const int rates_total,
       BufferE89[i]  = e89[i];
       BufferE200[i] = e200[i];
 
-      // Round Number Grid Calculation
-      double c_lo = MathFloor(close[i] / InpRoundStep) * InpRoundStep;
-      if(i + 1 < rates_total)
-      {
-         double c_prev_lo = MathFloor(close[i + 1] / InpRoundStep) * InpRoundStep;
-         if(c_lo == c_prev_lo)
-         {
-            BufferRoundHi[i] = c_lo + InpRoundStep;
-            BufferRoundLo[i] = c_lo;
-         }
-         else
-         {
-            BufferRoundHi[i] = EMPTY_VALUE;
-            BufferRoundLo[i] = EMPTY_VALUE;
-         }
-      }
+      // Round Number Levels ($10 Gold Step)
+      double cVal = close[i];
+      BufferRoundHi[i] = MathCeil(cVal / InpRoundStep) * InpRoundStep;
+      BufferRoundLo[i] = MathFloor(cVal / InpRoundStep) * InpRoundStep;
 
       BufferSignalBuy[i]  = EMPTY_VALUE;
       BufferSignalSell[i] = EMPTY_VALUE;
 
-      if(dc[1] < e89[1]) lock_ph = EMPTY_VALUE;
-      if(dc[1] > e89[1]) lock_pl = EMPTY_VALUE;
+      // Track M5 Pivot Highs & Lows
+      int kh = 0, kl = 0, kh_o = 0, kl_o = 0, k_hl = 0, k_lh = 0;
+      int tch_u = 0, tch_d = 0;
+      bool inv_u = false, inv_d = false;
+      int rph = 0, rpl = 0;
 
-      int rph = 0, rpl = 0, kh = 0, kl = 0, kl_o = 0, kh_o = 0;
-      int k_hl = 2, k_lh = 2, tch_u = 0, tch_d = 0;
-      bool inv_u = (close[1] < e89[1]);
-      bool inv_d = (close[1] > e89[1]);
-
-      for(int k = 2; k < InpPivotLookback + 8 && (k + 2) < rates_total; k++)
+      for(int k = 1; k <= InpPivotLookback; k++)
       {
-         bool is_ph = high[k] > high[k - 1] && high[k] >= high[k + 1] && high[k] > high[k + 2];
-         bool is_pl = low[k] < low[k - 1]   && low[k] <= low[k + 1]   && low[k] < low[k + 2];
+         int barIdx = i + k;
+         if(barIdx + 2 >= rates_total) break;
 
-         if(is_ph && rph == 0) rph = k;
-         if(is_pl && rpl == 0) rpl = k;
+         bool is_ph = (high[barIdx] > high[barIdx + 1] && high[barIdx] > high[barIdx + 2] &&
+                       high[barIdx] > high[barIdx - 1] && high[barIdx] > high[barIdx - 2]);
+         bool is_pl = (low[barIdx] < low[barIdx + 1] && low[barIdx] < low[barIdx + 2] &&
+                       low[barIdx] < low[barIdx - 1] && low[barIdx] < low[barIdx - 2]);
 
+         if(is_ph && rph == 0) rph = barIdx;
+         if(is_pl && rpl == 0) rpl = barIdx;
+
+         // Bull Wave Tracking
          if(kh == 0 && k >= 3 && is_ph && high[k] > dh[k] && (close[k] > dh[k] || close[k + 1] > dh[k + 1]))
          {
             kh = k;
@@ -458,6 +451,7 @@ int OnCalculate(const int rates_total,
             kl_o = k;
          }
 
+         // Bear Wave Tracking
          if(kl == 0 && k >= 3 && is_pl && low[k] < dl[k] && (close[k] < dl[k] || close[k + 1] < dl[k + 1]))
          {
             kl = k;
@@ -507,7 +501,7 @@ int OnCalculate(const int rates_total,
             {
                lastAlertTime = time[0];
                string msg = StringFormat("[Sonic R] XAUUSD M5 Bullish Setup Confirmed @ %s (Price: %.2f)", TimeToString(time[1]), close[1]);
-               if(InpEnablePopup) Alert(msg);
+               if(!MQLInfoInteger(MQL_TESTER) && InpEnablePopup) Alert(msg);
                if(InpEnableSound) PlaySound("alert.wav");
                if(InpEnablePush)  SendNotification(msg);
                if(InpEnableEmail) SendMail("Sonic R Alert", msg);
@@ -524,7 +518,7 @@ int OnCalculate(const int rates_total,
             {
                lastAlertTime = time[0];
                string msg = StringFormat("[Sonic R] XAUUSD M5 Bearish Setup Confirmed @ %s (Price: %.2f)", TimeToString(time[1]), close[1]);
-               if(InpEnablePopup) Alert(msg);
+               if(!MQLInfoInteger(MQL_TESTER) && InpEnablePopup) Alert(msg);
                if(InpEnableSound) PlaySound("alert.wav");
                if(InpEnablePush)  SendNotification(msg);
                if(InpEnableEmail) SendMail("Sonic R Alert", msg);
