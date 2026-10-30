@@ -28,3 +28,4 @@ print(f"Take Profit Triggered: {tp_hits}")
 if (sl_hits + tp_hits) > 0:
     win_rate = (tp_hits / (sl_hits + tp_hits)) * 100
     print(f"Win Rate: {win_rate:.2f}%")
+

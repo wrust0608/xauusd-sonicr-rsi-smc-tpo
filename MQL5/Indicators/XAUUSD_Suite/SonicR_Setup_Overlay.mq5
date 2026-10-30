@@ -73,13 +73,19 @@ input bool     InpRequireEma200  = false;       // Require Price Beyond EMA 200
 input int      InpTriggerMode    = 0;           // Trigger Mode (0=Bounce Dragon, 1=Break Swing)
 input double   InpRoundStep      = 10.0;        // Round Number Grid Step (Gold = $10)
 
-input group "=== 3. Visual Dashboard & HUD ==="
+input group "=== 3. Quantitative Defect Filters (SMC & Volatility) ==="
+input bool     InpFilterEquilibrium = true;        // Filter: Buy in Discount (<50%) & Sell in Premium (>50%)
+input bool     InpFilterStructure   = true;        // Filter: Align with Market Structure (No Counter-BOS)
+input double   InpAtrSlMultiplier   = 1.5;         // Dynamic SL ATR Multiplier (1.5x ATR)
+input double   InpAtrTpMultiplier   = 3.0;         // Dynamic TP ATR Multiplier (3.0x ATR = 1:2 RR)
+
+input group "=== 4. Visual Dashboard & HUD ==="
 input bool     InpShowHUD        = true;        // Show On-Chart Information HUD
 input int      InpHUDCorner      = 1;           // HUD Corner (1 = Top Right, 0 = Top Left)
 input color    InpHUDColor       = clrWhite;    // HUD Text Color
 
-input group "=== 4. Multi-Channel Alert Settings ==="
-input bool     InpEnablePopup    = true;        // Enable Pop-up Alert
+input group "=== 5. Multi-Channel Alert Settings ==="
+input bool     InpEnablePopup    = false;       // Enable Pop-up Alert
 input bool     InpEnableSound    = true;        // Enable Sound Alert
 input bool     InpEnablePush     = false;       // Enable Push Notification (Phone)
 input bool     InpEnableEmail    = false;       // Enable Email Alert
@@ -243,14 +249,14 @@ bool GetHtfPulse(ENUM_TIMEFRAMES tf, double &out_r, double &out_e, double &out_w
 //+------------------------------------------------------------------+
 //| Helper: Render On-Chart HUD Information Panel (Top-Right)        |
 //+------------------------------------------------------------------+
-void RenderHUD(bool htf_up, bool htf_dn, bool m15_up, bool m15_dn, double distDragon, string waveStatus)
+void RenderHUD(bool htf_up, bool htf_dn, bool m15_up, bool m15_dn, double distDragon, string waveStatus, double atrVal)
 {
    if(!InpShowHUD) return;
 
    int startX = 15;
    int startY = 15;
    int width  = 210;
-   int height = 88;
+   int height = 104;
 
    // HUD Background Box
    string bgName = prefix + "BG";
@@ -268,14 +274,15 @@ void RenderHUD(bool htf_up, bool htf_dn, bool m15_up, bool m15_dn, double distDr
    ObjectSetInteger(0, bgName, OBJPROP_XSIZE, width);
    ObjectSetInteger(0, bgName, OBJPROP_YSIZE, height);
 
-   string lines[5];
+   string lines[6];
    lines[0] = "SONIC R XAUUSD (M5)";
    lines[1] = StringFormat("H4 Trend : %s", htf_up ? "BULLISH (UP)" : (htf_dn ? "BEARISH (DOWN)" : "NEUTRAL/TANGLE"));
    lines[2] = StringFormat("M15 Wait : %s", m15_up ? "BUY ZONE (40-50)" : (m15_dn ? "SELL ZONE (50-60)" : "NO SETUP"));
    lines[3] = StringFormat("M5 Wave  : %s", waveStatus);
    lines[4] = StringFormat("Dist Dragon: %.2f pts", distDragon);
+   lines[5] = StringFormat("Dyn SL/TP : $%.2f / $%.2f", InpAtrSlMultiplier * atrVal, InpAtrTpMultiplier * atrVal);
 
-   for(int i = 0; i < 5; i++)
+   for(int i = 0; i < 6; i++)
    {
       string lblName = prefix + IntegerToString(i);
       if(ObjectFind(0, lblName) < 0)
@@ -294,6 +301,7 @@ void RenderHUD(bool htf_up, bool htf_dn, bool m15_up, bool m15_dn, double distDr
       if(i == 1) clr = htf_up ? clrSpringGreen : (htf_dn ? clrTomato : clrYellow);
       if(i == 2) clr = (m15_up || m15_dn) ? clrGold : clrLightSlateGray;
       if(i == 3) clr = (StringFind(waveStatus, "BULL") >= 0) ? clrSpringGreen : ((StringFind(waveStatus, "BEAR") >= 0) ? clrTomato : clrCyan);
+      if(i == 5) clr = clrSilver;
       ObjectSetString(0, lblName, OBJPROP_TEXT, lines[i]);
       ObjectSetInteger(0, lblName, OBJPROP_COLOR, clr);
    }
@@ -361,15 +369,16 @@ int OnCalculate(const int rates_total,
 
    bool h4_up = ok4 && (r4 > e4 && e4 > w4) && ((r4 - w4) >= InpTangleSpread) && (s4 >= InpMinSlope);
    bool h4_dn = ok4 && (r4 < e4 && e4 < w4) && ((w4 - r4) >= InpTangleSpread) && (s4 <= -InpMinSlope);
+   bool h4_neutral = ok4 && (MathAbs(r4 - w4) < InpTangleSpread);
 
    bool h1_up = ok1 && (r1 > e1 && e1 > w1) && ((r1 - w1) >= InpTangleSpread) && (s1 >= InpMinSlope);
    bool h1_dn = ok1 && (r1 < e1 && e1 < w1) && ((w1 - r1) >= InpTangleSpread) && (s1 <= -InpMinSlope);
 
-   bool htf_up = InpStrictHtf ? (h4_up && h1_up) : h4_up;
-   bool htf_dn = InpStrictHtf ? (h4_dn && h1_dn) : h4_dn;
+   bool htf_up = InpStrictHtf ? (h4_up && h1_up) : (h4_up || (h4_neutral && h1_up));
+   bool htf_dn = InpStrictHtf ? (h4_dn && h1_dn) : (h4_dn || (h4_neutral && h1_dn));
 
-   bool m15_up = ok15 && (r15 >= 40.0 && r15 <= 50.0) && (MathAbs(r15 - w15) <= InpW45Tolerance);
-   bool m15_dn = ok15 && (r15 >= 50.0 && r15 <= 60.0) && (MathAbs(r15 - w15) <= InpW45Tolerance);
+   bool m15_up = ok15 && (r15 >= 38.0 && r15 <= 52.0);
+   bool m15_dn = ok15 && (r15 >= 48.0 && r15 <= 62.0);
 
    // 2. Main Loop for M5 Indicators and Execution
    string waveStr = "SEARCHING WAVE";
@@ -449,6 +458,15 @@ int OnCalculate(const int rates_total,
       {
          double ph = (kh > 0) ? high[kh] : EMPTY_VALUE;
          double pl = (kl > 0) ? low[kl]  : EMPTY_VALUE;
+         double eq = (ph != EMPTY_VALUE && pl != EMPTY_VALUE && ph > pl) ? ((ph + pl) / 2.0) : EMPTY_VALUE;
+
+         // Defect 2 Filter: Equilibrium Zone
+         bool eq_buy_ok  = (!InpFilterEquilibrium) || (eq == EMPTY_VALUE) || (close[1] <= eq);
+         bool eq_sell_ok = (!InpFilterEquilibrium) || (eq == EMPTY_VALUE) || (close[1] >= eq);
+
+         // Defect 1 Filter: Market Structure Alignment (No active Counter-BOS)
+         bool struct_buy_ok  = (!InpFilterStructure) || (pl == EMPTY_VALUE) || (close[1] >= pl);
+         bool struct_sell_ok = (!InpFilterStructure) || (ph == EMPTY_VALUE) || (close[1] <= ph);
 
          bool w_up = (kl_o > kh && kh > k_hl && k_hl >= 2 && 2 <= tch_u && tch_u < kh && !inv_u && low[1] >= low[k_hl] && low[k_hl] > low[kl_o]);
          bool w_dn = (kh_o > kl && kl > k_lh && k_lh >= 2 && 2 <= tch_d && tch_d < kl && !inv_d && high[1] <= high[k_lh] && high[k_lh] < high[kh_o]);
@@ -462,8 +480,11 @@ int OnCalculate(const int rates_total,
          bool cyc_u = (rates_total - kh > lock_u_bar) && (lock_ph == EMPTY_VALUE || ph >= lock_ph);
          bool cyc_d = (rates_total - kl > lock_d_bar) && (lock_pl == EMPTY_VALUE || pl <= lock_pl);
 
-         bool fire_up = htf_up && m15_up && cyc_u && dc[1] > e89[1] && dc[1] > dc[2] && (!InpRequireEma200 || close[1] > e200[1]) && w_up && ev_up;
-         bool fire_dn = htf_dn && m15_dn && cyc_d && dc[1] < e89[1] && dc[1] < dc[2] && (!InpRequireEma200 || close[1] < e200[1]) && w_dn && ev_dn;
+         bool fire_up = htf_up && m15_up && cyc_u && dc[1] > e89[1] && dc[1] > dc[2] && (!InpRequireEma200 || close[1] > e200[1]) && w_up && ev_up && eq_buy_ok && struct_buy_ok;
+         bool fire_dn = htf_dn && m15_dn && cyc_d && dc[1] < e89[1] && dc[1] < dc[2] && (!InpRequireEma200 || close[1] < e200[1]) && w_dn && ev_dn && eq_sell_ok && struct_sell_ok;
+
+         double dynSL = MathMax(3.50, InpAtrSlMultiplier * atr[1]);
+         double dynTP = InpAtrTpMultiplier * atr[1];
 
          if(fire_up)
          {
@@ -474,7 +495,8 @@ int OnCalculate(const int rates_total,
             if(time[0] != lastAlertTime)
             {
                lastAlertTime = time[0];
-               string msg = StringFormat("[Sonic R] XAUUSD M5 Bullish Setup Confirmed @ %s (Price: %.2f)", TimeToString(time[1]), close[1]);
+               string msg = StringFormat("[Sonic R Quad-Gate] XAUUSD M5 Bull Setup @ %s (P: %.2f | Dyn SL: %.2f [-$%.2f] | Dyn TP: %.2f [+$%.2f] | RR 1:2)",
+                                         TimeToString(time[1]), close[1], close[1] - dynSL, dynSL, close[1] + dynTP, dynTP);
                if(!MQLInfoInteger(MQL_TESTER) && InpEnablePopup) Alert(msg);
                if(InpEnableSound) PlaySound("alert.wav");
                if(InpEnablePush)  SendNotification(msg);
@@ -491,7 +513,8 @@ int OnCalculate(const int rates_total,
             if(time[0] != lastAlertTime)
             {
                lastAlertTime = time[0];
-               string msg = StringFormat("[Sonic R] XAUUSD M5 Bearish Setup Confirmed @ %s (Price: %.2f)", TimeToString(time[1]), close[1]);
+               string msg = StringFormat("[Sonic R Quad-Gate] XAUUSD M5 Bear Setup @ %s (P: %.2f | Dyn SL: %.2f [+$%.2f] | Dyn TP: %.2f [-$%.2f] | RR 1:2)",
+                                         TimeToString(time[1]), close[1], close[1] + dynSL, dynSL, close[1] - dynTP, dynTP);
                if(!MQLInfoInteger(MQL_TESTER) && InpEnablePopup) Alert(msg);
                if(InpEnableSound) PlaySound("alert.wav");
                if(InpEnablePush)  SendNotification(msg);
@@ -502,7 +525,7 @@ int OnCalculate(const int rates_total,
    }
 
    double distDragon = (dc[0] > 0) ? (close[0] - dc[0]) : 0.0;
-   RenderHUD(htf_up, htf_dn, m15_up, m15_dn, distDragon, waveStr);
+   RenderHUD(htf_up, htf_dn, m15_up, m15_dn, distDragon, waveStr, atr[0]);
 
    return(rates_total);
 }

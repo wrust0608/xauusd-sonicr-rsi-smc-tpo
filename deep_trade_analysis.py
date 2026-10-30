@@ -23,3 +23,4 @@ for t in trades[:10]:
 print("\n--- RECENT TRADE SEQUENCES ---")
 for t in trades[-10:]:
     print(f"Time: {t[0]} | Type: {t[1].upper()} | SL: {t[2]} | TP: {t[3]}")
+
