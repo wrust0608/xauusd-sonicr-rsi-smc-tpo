@@ -24,7 +24,43 @@ def clean_file(path):
     )
     content = tpo_pattern.sub(r"\1", content)
 
-    # 1c. In RSI_Trend_Pulse_Pane: ensure the 7 <graph> blocks exist
+    # 1c. In SMC_MarketStructure_Overlay: disable HUD to leave top-left 100% clear for candles
+    def smc_hud_sub(m):
+        block = m.group(0)
+        block = re.sub(r"InpShowHUD=true", "InpShowHUD=false", block)
+        return block
+    content = re.sub(
+        r"path=Indicators\\XAUUSD_Suite\\SMC_MarketStructure_Overlay\.ex5[\s\S]*?</indicator>",
+        smc_hud_sub,
+        content
+    )
+
+    # 1d. In TPO_Session_Profile: disable HUD to prevent overlap with Sonic R HUD on top-right
+    def tpo_hud_sub(m):
+        block = m.group(0)
+        block = re.sub(r"InpShowHUD=true", "InpShowHUD=false", block)
+        return block
+    content = re.sub(
+        r"path=Indicators\\XAUUSD_Suite\\TPO_Session_Profile\.ex5[\s\S]*?</indicator>",
+        tpo_hud_sub,
+        content
+    )
+
+    # 1e. In SonicR_Setup_Overlay: ensure unified HUD is active on top-right (corner 1)
+    def sonic_hud_sub(m):
+        block = m.group(0)
+        block = re.sub(r"InpShowHUD=false", "InpShowHUD=true", block)
+        block = re.sub(r"InpHUDCorner=0", "InpHUDCorner=1", block)
+        if "InpFilterEquilibrium" not in block:
+            block = block.replace("=== 1. MTF Trend Confluence Settings ====", "=== 1. MTF Trend Confluence Settings ====\nInpFilterEquilibrium=true\nInpFilterStructure=true")
+        return block
+    content = re.sub(
+        r"path=Indicators\\XAUUSD_Suite\\SonicR_Setup_Overlay\.ex5[\s\S]*?</indicator>",
+        sonic_hud_sub,
+        content
+    )
+
+    # 1f. In RSI_Trend_Pulse_Pane: ensure the 7 <graph> blocks exist
     rsi_graphs = """<graph>
 name=RSI 14
 draw=1
@@ -102,7 +138,7 @@ color=255
     # 3. Clean any empty lines inside <indicator> tags
     content = re.sub(r"\n\s*\n\s*\n+", "\n\n", content)
 
-    # 4. Ensure window_type=3 (maximized) and fore=1 (candlesticks in foreground)
+    # 4. Ensure window_type=3 (maximized), fore=1 (candlesticks in foreground), and scale=8
     content = re.sub(r"window_type=\d+", "window_type=3", content)
     content = re.sub(r"fore=\d+", "fore=1", content)
     content = re.sub(r"scale=\d+", "scale=8", content)

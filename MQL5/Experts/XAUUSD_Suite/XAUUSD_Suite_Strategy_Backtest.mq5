@@ -5,8 +5,8 @@
 //+------------------------------------------------------------------+
 #property copyright   "Antigravity AI"
 #property link        "https://antigravity.ai"
-#property version     "2.50"
-#property description "Remediated Quad-Gatekeeper Strategy for XAUUSD Suite (Sonic R + RSI MTF + SMC + TPO with Dynamic ATR)"
+#property version     "3.00"
+#property description "Refined Quad-Gatekeeper Strategy: Sonic R Wave + SMC Structure/Equilibrium + TPO POC + Dynamic ATR 1:2 RR"
 
 #include <Trade\Trade.mqh>
 
@@ -18,8 +18,6 @@ input double   InpAtrSlMult         = 1.5;        // Dynamic Stop Loss Multiplie
 input double   InpAtrTpMult         = 3.0;        // Dynamic Take Profit Multiplier (3.0x ATR = 1:2 RR)
 input int      InpFixedSlPoints     = 350;        // Fallback Static SL in Points ($3.50)
 input int      InpFixedTpPoints     = 700;        // Fallback Static TP in Points ($7.00)
-input bool     InpUseTrailingStop   = false;      // Enable Trailing Stop
-input int      InpTrailingPoints    = 250;        // Trailing Stop Distance in Points
 input ulong    InpMagicNumber       = 888999;     // Magic Number
 
 input group "=== 2. Defect Remediation Gates ==="
@@ -30,10 +28,14 @@ input bool     InpFilterEquilibrium = true;       // Gate 2: Enforce SMC Discoun
 input bool     InpFilterPOC         = true;       // Gate 3: Enforce TPO POC Clearance (Defect 4 Fix)
 input double   InpPOCTolerance      = 2.50;       // Min Distance to Opposing POC ($2.50)
 input bool     InpFilterRSI         = true;       // Gate 4: Enforce RSI Momentum Corridor (Defect 5 Fix)
-input double   InpRsiBullMin        = 38.0;       // RSI Bullish Floor
+input double   InpRsiBullMin        = 40.0;       // RSI Bullish Floor (Cardwell Bull Range)
 input double   InpRsiBullMax        = 65.0;       // RSI Bullish Ceiling
 input double   InpRsiBearMin        = 35.0;       // RSI Bearish Floor
-input double   InpRsiBearMax        = 62.0;       // RSI Bearish Ceiling
+input double   InpRsiBearMax        = 60.0;       // RSI Bearish Ceiling (Cardwell Bear Range)
+
+input group "=== 3. SMC Fractal Swing Geometry ==="
+input int      InpSwingLeftBars     = 5;          // Fractal Left Bars
+input int      InpSwingRightBars    = 5;          // Fractal Right Bars
 
 //--- Global Variables
 CTrade         m_trade;
@@ -44,14 +46,16 @@ int            hRSI14;
 int            hATR14;
 datetime       m_lastBarTime = 0;
 
-//--- Market Structure State
-double         m_rangeHigh   = 0.0;
-double         m_rangeLow    = 0.0;
-double         m_equilibrium = 0.0;
-int            m_smcTrend    = 0; // 1 = Bull, -1 = Bear, 0 = Neutral
-double         m_lastAsianPOC  = 0.0;
-double         m_lastLondonPOC = 0.0;
-double         m_lastNYPOC     = 0.0;
+//--- Market Structure Memory
+double         m_lastSwingHigh = 0.0;
+double         m_lastSwingLow  = 0.0;
+double         m_equilibrium   = 0.0;
+int            m_smcTrend      = 0; // 1 = Bullish, -1 = Bearish, 0 = Neutral
+
+//--- TPO Session Memory
+double         m_lastAsianPOC   = 0.0;
+double         m_lastLondonPOC  = 0.0;
+double         m_lastNYPOC      = 0.0;
 int            m_lastSessionDay = -1;
 
 //--- Performance Metrics
@@ -85,7 +89,7 @@ int OnInit()
       return(INIT_FAILED);
    }
 
-   PrintFormat("Quad-Gatekeeper Strategy Backtester Initialized: Symbol=%s, Period=%s, DynamicATR=%s",
+   PrintFormat("Quad-Gatekeeper Strategy v3.0 Initialized: Symbol=%s, Period=%s, DynamicATR=%s",
                _Symbol, EnumToString((ENUM_TIMEFRAMES)_Period), InpUseDynamicATR ? "ON" : "OFF");
    return(INIT_SUCCEEDED);
 }
@@ -119,23 +123,94 @@ void OnDeinit(const int reason)
 }
 
 //+------------------------------------------------------------------+
+//| Update SMC Swings & BOS/CHoCH Detection                          |
+//+------------------------------------------------------------------+
+void UpdateSMCStructure(int ratesTotal)
+{
+   // Search for the most recently confirmed fractal swing high & low
+   // A fractal swing at bar k is confirmed once k has InpSwingRightBars bars to its right
+   int startK = InpSwingRightBars + 1;
+   int endK   = startK + 100;
+   if(endK >= ratesTotal - InpSwingLeftBars - 1) endK = ratesTotal - InpSwingLeftBars - 1;
+
+   for(int k = startK; k <= endK; k++)
+   {
+      double hK = iHigh(_Symbol, _Period, k);
+      double lK = iLow(_Symbol, _Period, k);
+
+      // Check Swing High
+      if(m_lastSwingHigh == 0.0)
+      {
+         bool isSH = true;
+         for(int left = 1; left <= InpSwingLeftBars; left++)
+         {
+            if(iHigh(_Symbol, _Period, k + left) >= hK) { isSH = false; break; }
+         }
+         if(isSH)
+         {
+            for(int right = 1; right <= InpSwingRightBars; right++)
+            {
+               if(iHigh(_Symbol, _Period, k - right) >= hK) { isSH = false; break; }
+            }
+         }
+         if(isSH) m_lastSwingHigh = hK;
+      }
+
+      // Check Swing Low
+      if(m_lastSwingLow == 0.0)
+      {
+         bool isSL = true;
+         for(int left = 1; left <= InpSwingLeftBars; left++)
+         {
+            if(iLow(_Symbol, _Period, k + left) <= lK) { isSL = false; break; }
+         }
+         if(isSL)
+         {
+            for(int right = 1; right <= InpSwingRightBars; right++)
+            {
+               if(iLow(_Symbol, _Period, k - right) <= lK) { isSL = false; break; }
+            }
+         }
+         if(isSL) m_lastSwingLow = lK;
+      }
+
+      if(m_lastSwingHigh > 0.0 && m_lastSwingLow > 0.0) break;
+   }
+
+   // Update Equilibrium & Structure State
+   if(m_lastSwingHigh > m_lastSwingLow && m_lastSwingLow > 0.0)
+   {
+      m_equilibrium = (m_lastSwingHigh + m_lastSwingLow) / 2.0;
+
+      double c1 = iClose(_Symbol, _Period, 1);
+      // Break of Structure (BOS)
+      if(c1 > m_lastSwingHigh)
+      {
+         m_smcTrend = 1; // Bullish BOS
+         m_lastSwingHigh = iHigh(_Symbol, _Period, 1);
+      }
+      else if(c1 < m_lastSwingLow)
+      {
+         m_smcTrend = -1; // Bearish BOS
+         m_lastSwingLow = iLow(_Symbol, _Period, 1);
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
 //| Expert tick function                                             |
 //+------------------------------------------------------------------+
 void OnTick()
 {
-   // Check Bar Close on Bar 1 for Strict Causality
+   // Check Bar Close on Bar 1 for Strict Non-Repainting Causality
    datetime barTime = iTime(_Symbol, _Period, 0);
-   if(barTime == m_lastBarTime)
-   {
-      if(InpUseTrailingStop) ManageTrailingStop();
-      return;
-   }
+   if(barTime == m_lastBarTime) return;
    m_lastBarTime = barTime;
 
    int ratesTotal = iBars(_Symbol, _Period);
    if(ratesTotal < 120) return;
 
-   // 1. Fetch Indicators & Quotes
+   // 1. Fetch Indicators & Quotes at Bar 1
    double ema34H[2], ema34L[2], ema34C[2], ema89[2], ema200[2], rsi[3], atr[2];
    ArraySetAsSeries(ema34H, true);
    ArraySetAsSeries(ema34L, true);
@@ -171,23 +246,8 @@ void OnTick()
    double curRSI = rsi[0];
    double curATR = atr[0];
 
-   // 2. Update SMC Dealing Range & Swings
-   bool isMajorHi = true;
-   bool isMajorLo = true;
-   for(int k = 2; k <= 9; k++)
-   {
-      if(iHigh(_Symbol, _Period, k) >= h1) isMajorHi = false;
-      if(iLow(_Symbol, _Period, k) <= l1)  isMajorLo = false;
-   }
-   if(isMajorHi) m_rangeHigh = h1;
-   if(isMajorLo) m_rangeLow  = l1;
-
-   if(m_rangeHigh > m_rangeLow && m_rangeLow > 0.0)
-   {
-      m_equilibrium = (m_rangeHigh + m_rangeLow) / 2.0;
-      if(c1 > m_rangeHigh) m_smcTrend = 1;
-      if(c1 < m_rangeLow)  m_smcTrend = -1;
-   }
+   // 2. Update SMC Internal Engine
+   UpdateSMCStructure(ratesTotal);
 
    // 3. Update Simulated TPO Session POC
    MqlDateTime dt;
@@ -195,12 +255,18 @@ void OnTick()
    if(dt.day != m_lastSessionDay)
    {
       m_lastSessionDay = dt.day;
-      m_lastAsianPOC   = (m_rangeHigh + m_rangeLow) / 2.0;
-      m_lastLondonPOC  = m_lastAsianPOC - 1.20;
-      m_lastNYPOC      = m_lastAsianPOC + 2.50;
+      if(m_lastSwingHigh > m_lastSwingLow && m_lastSwingLow > 0.0)
+      {
+         m_lastAsianPOC   = (m_lastSwingHigh + m_lastSwingLow) / 2.0;
+         m_lastLondonPOC  = m_lastAsianPOC - 1.20;
+         m_lastNYPOC      = m_lastAsianPOC + 2.50;
+      }
    }
 
-   // 4. Evaluate Gates
+   // 4. Strict Single Position Discipline
+   if(PositionsTotal() > 0) return;
+
+   // 5. Evaluate Gates
    // Gate 0: Sonic R Trend & Wave Bounce
    bool sonicBuy  = (!InpFilterTrend89 || c1 >= e89) &&
                     (!InpFilterDragonCloud || (l1 <= dHigh && c1 > dLow && c1 > o1));
@@ -208,20 +274,23 @@ void OnTick()
                     (!InpFilterDragonCloud || (h1 >= dLow && c1 < dHigh && c1 < o1));
 
    // Gate 1: SMC Market Structure Alignment (Defect 1 Fix)
-   bool structBuy  = (!InpFilterStructure) || (m_smcTrend >= 0 && (m_rangeLow == 0.0 || c1 >= m_rangeLow));
-   bool structSell = (!InpFilterStructure) || (m_smcTrend <= 0 && (m_rangeHigh == 0.0 || c1 <= m_rangeHigh));
+   // Buy ONLY if SMC trend is not bearish (no Lower-Low breakdown)
+   bool structBuy  = (!InpFilterStructure) || (m_smcTrend >= 0 && (m_lastSwingLow == 0.0 || c1 >= m_lastSwingLow));
+   // Sell ONLY if SMC trend is not bullish (no Higher-High breakout)
+   bool structSell = (!InpFilterStructure) || (m_smcTrend <= 0 && (m_lastSwingHigh == 0.0 || c1 <= m_lastSwingHigh));
 
    // Gate 2: SMC Discount/Premium Zone (Defect 2 Fix)
+   // Buy ONLY in Discount (<50% of dealing range), Sell ONLY in Premium (>50%)
    bool eqBuy  = (!InpFilterEquilibrium) || (m_equilibrium == 0.0) || (c1 <= m_equilibrium);
    bool eqSell = (!InpFilterEquilibrium) || (m_equilibrium == 0.0) || (c1 >= m_equilibrium);
 
    // Gate 3: TPO POC Clearance (Defect 4 Fix)
    bool pocBuy  = (!InpFilterPOC) ||
-                  ((MathAbs(c1 - m_lastLondonPOC) >= InpPOCTolerance || c1 > m_lastLondonPOC) &&
-                   (MathAbs(c1 - m_lastAsianPOC) >= InpPOCTolerance || c1 > m_lastAsianPOC));
+                  ((m_lastLondonPOC == 0.0 || MathAbs(c1 - m_lastLondonPOC) >= InpPOCTolerance || c1 > m_lastLondonPOC) &&
+                   (m_lastAsianPOC  == 0.0 || MathAbs(c1 - m_lastAsianPOC) >= InpPOCTolerance || c1 > m_lastAsianPOC));
    bool pocSell = (!InpFilterPOC) ||
-                  ((MathAbs(c1 - m_lastLondonPOC) >= InpPOCTolerance || c1 < m_lastLondonPOC) &&
-                   (MathAbs(c1 - m_lastAsianPOC) >= InpPOCTolerance || c1 < m_lastAsianPOC));
+                  ((m_lastLondonPOC == 0.0 || MathAbs(c1 - m_lastLondonPOC) >= InpPOCTolerance || c1 < m_lastLondonPOC) &&
+                   (m_lastAsianPOC  == 0.0 || MathAbs(c1 - m_lastAsianPOC) >= InpPOCTolerance || c1 < m_lastAsianPOC));
 
    // Gate 4: RSI Momentum Corridor (Defect 5 Fix)
    bool rsiBuy  = (!InpFilterRSI) || (curRSI >= InpRsiBullMin && curRSI <= InpRsiBullMax);
@@ -231,24 +300,8 @@ void OnTick()
    double slDist = InpUseDynamicATR ? MathMax(3.50, InpAtrSlMult * curATR) : (InpFixedSlPoints * _Point);
    double tpDist = InpUseDynamicATR ? (InpAtrTpMult * curATR) : (InpFixedTpPoints * _Point);
 
-   // Check Active Positions
-   int totalPositions = PositionsTotal();
-   bool hasOpenBuy = false;
-   bool hasOpenSell = false;
-
-   for(int p = totalPositions - 1; p >= 0; p--)
-   {
-      ulong ticket = PositionGetTicket(p);
-      if(ticket > 0 && PositionGetString(POSITION_SYMBOL) == _Symbol && PositionGetInteger(POSITION_MAGIC) == InpMagicNumber)
-      {
-         long posType = PositionGetInteger(POSITION_TYPE);
-         if(posType == POSITION_TYPE_BUY)  hasOpenBuy = true;
-         if(posType == POSITION_TYPE_SELL) hasOpenSell = true;
-      }
-   }
-
    // --- EXECUTE BUY ORDER ---
-   if(totalPositions == 0 && sonicBuy && structBuy && eqBuy && pocBuy && rsiBuy)
+   if(sonicBuy && structBuy && eqBuy && pocBuy && rsiBuy)
    {
       double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
       double sl  = ask - slDist;
@@ -257,13 +310,13 @@ void OnTick()
       if(m_trade.Buy(InpLotSize, _Symbol, ask, sl, tp, "Quad-Gate BUY"))
       {
          m_totalSignals++;
-         PrintFormat("[QUAD-GATE BUY #%d] Ask: %.2f | SL: %.2f (-$%.2f) | TP: %.2f (+$%.2f) | ATR: %.2f | RSI: %.1f",
-                     m_totalSignals, ask, sl, slDist, tp, tpDist, curATR, curRSI);
+         PrintFormat("[QUAD-GATE BUY #%d] Ask: %.2f | SL: %.2f (-$%.2f) | TP: %.2f (+$%.2f) | ATR: %.2f | RSI: %.1f | Struct: %d",
+                     m_totalSignals, ask, sl, slDist, tp, tpDist, curATR, curRSI, m_smcTrend);
       }
    }
 
    // --- EXECUTE SELL ORDER ---
-   if(totalPositions == 0 && sonicSell && structSell && eqSell && pocSell && rsiSell)
+   if(sonicSell && structSell && eqSell && pocSell && rsiSell)
    {
       double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
       double sl  = bid + slDist;
@@ -272,8 +325,8 @@ void OnTick()
       if(m_trade.Sell(InpLotSize, _Symbol, bid, sl, tp, "Quad-Gate SELL"))
       {
          m_totalSignals++;
-         PrintFormat("[QUAD-GATE SELL #%d] Bid: %.2f | SL: %.2f (+$%.2f) | TP: %.2f (-$%.2f) | ATR: %.2f | RSI: %.1f",
-                     m_totalSignals, bid, sl, slDist, tp, tpDist, curATR, curRSI);
+         PrintFormat("[QUAD-GATE SELL #%d] Bid: %.2f | SL: %.2f (+$%.2f) | TP: %.2f (-$%.2f) | ATR: %.2f | RSI: %.1f | Struct: %d",
+                     m_totalSignals, bid, sl, slDist, tp, tpDist, curATR, curRSI, m_smcTrend);
       }
    }
 }
@@ -305,48 +358,6 @@ void OnTradeTransaction(const MqlTradeTransaction &trans,
             {
                m_totalLosses++;
                m_grossLoss += MathAbs(profit);
-            }
-         }
-      }
-   }
-}
-
-//+------------------------------------------------------------------+
-//| Trailing Stop Management                                         |
-//+------------------------------------------------------------------+
-void ManageTrailingStop()
-{
-   for(int p = PositionsTotal() - 1; p >= 0; p--)
-   {
-      ulong ticket = PositionGetTicket(p);
-      if(ticket > 0 && PositionGetString(POSITION_SYMBOL) == _Symbol && PositionGetInteger(POSITION_MAGIC) == InpMagicNumber)
-      {
-         long posType = PositionGetInteger(POSITION_TYPE);
-         double openPrice = PositionGetDouble(POSITION_PRICE_OPEN);
-         double currentSL = PositionGetDouble(POSITION_SL);
-
-         if(posType == POSITION_TYPE_BUY)
-         {
-            double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-            if(bid - openPrice > InpTrailingPoints * _Point)
-            {
-               double newSL = bid - (InpTrailingPoints * _Point);
-               if(newSL > currentSL + (20 * _Point))
-               {
-                  m_trade.PositionModify(ticket, newSL, PositionGetDouble(POSITION_TP));
-               }
-            }
-         }
-         else if(posType == POSITION_TYPE_SELL)
-         {
-            double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-            if(openPrice - ask > InpTrailingPoints * _Point)
-            {
-               double newSL = ask + (InpTrailingPoints * _Point);
-               if(newSL < currentSL - (20 * _Point) || currentSL == 0.0)
-               {
-                  m_trade.PositionModify(ticket, newSL, PositionGetDouble(POSITION_TP));
-               }
             }
          }
       }

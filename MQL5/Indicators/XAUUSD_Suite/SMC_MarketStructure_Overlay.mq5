@@ -56,7 +56,7 @@ input color    InpDiscountColor    = clrDarkSeaGreen;// Discount Zone Border Col
 input color    InpEquilibriumColor = clrSilver;     // 50% Equilibrium Line Color
 
 input group "=== 7. Visual HUD Dashboard ==="
-input bool     InpShowHUD          = true;          // Show SMC Status Dashboard
+input bool     InpShowHUD          = false;         // Show SMC Status Dashboard (Default OFF to eliminate screen clutter)
 input int      InpHUDCorner        = 0;             // HUD Corner (0 = Top-Left, 1 = Top-Right)
 input color    InpHUDColor         = clrWhite;      // HUD Text Color
 

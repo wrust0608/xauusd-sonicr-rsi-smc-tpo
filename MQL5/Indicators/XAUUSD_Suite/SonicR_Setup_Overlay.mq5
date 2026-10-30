@@ -348,15 +348,29 @@ int OnCalculate(const int rates_total,
    ArraySetAsSeries(e200, true);
    ArraySetAsSeries(atr, true);
 
-   if(CopyBuffer(handleEma34High, 0, 0, rates_total, dh) <= 0) return(0);
-   if(CopyBuffer(handleEma34Close, 0, 0, rates_total, dc) <= 0) return(0);
-   if(CopyBuffer(handleEma34Low, 0, 0, rates_total, dl) <= 0) return(0);
-   if(CopyBuffer(handleEma89, 0, 0, rates_total, e89) <= 0) return(0);
-   if(CopyBuffer(handleEma200, 0, 0, rates_total, e200) <= 0) return(0);
-   if(CopyBuffer(handleAtr14, 0, 0, rates_total, atr) <= 0) return(0);
+   int copiedDh   = CopyBuffer(handleEma34High, 0, 0, rates_total, dh);
+   int copiedDc   = CopyBuffer(handleEma34Close, 0, 0, rates_total, dc);
+   int copiedDl   = CopyBuffer(handleEma34Low, 0, 0, rates_total, dl);
+   int copiedE89  = CopyBuffer(handleEma89, 0, 0, rates_total, e89);
+   int copiedE200 = CopyBuffer(handleEma200, 0, 0, rates_total, e200);
+   int copiedAtr  = CopyBuffer(handleAtr14, 0, 0, rates_total, atr);
 
-   int limit = rates_total - prev_calculated + 10;
-   if(limit > rates_total - 1) limit = rates_total - 1;
+   if(copiedDh <= 0 || copiedDc <= 0 || copiedDl <= 0 || copiedE89 <= 0 || copiedE200 <= 0 || copiedAtr <= 0)
+      return(0);
+
+   int maxAvailable = rates_total;
+   maxAvailable = MathMin(maxAvailable, copiedDh);
+   maxAvailable = MathMin(maxAvailable, copiedDc);
+   maxAvailable = MathMin(maxAvailable, copiedDl);
+   maxAvailable = MathMin(maxAvailable, copiedE89);
+   maxAvailable = MathMin(maxAvailable, copiedE200);
+   maxAvailable = MathMin(maxAvailable, copiedAtr);
+
+   if(maxAvailable <= InpPivotLookback + 10) return(0);
+
+   int limit = (prev_calculated == 0) ? (maxAvailable - 1) : (rates_total - prev_calculated + 10);
+   if(limit >= maxAvailable) limit = maxAvailable - 1;
+   if(limit < 0) limit = 0;
 
    // 1. Calculate Multi-Timeframe Trend Pulse Confluence
    double r4 = 0, e4 = 0, w4 = 0, s4 = 0;
@@ -408,7 +422,7 @@ int OnCalculate(const int rates_total,
       for(int k = 1; k <= InpPivotLookback; k++)
       {
          int barIdx = i + k;
-         if(barIdx < 2 || barIdx + 2 >= rates_total) continue;
+         if(barIdx < 2 || barIdx + 2 >= maxAvailable) continue;
 
          bool is_ph = (high[barIdx] > high[barIdx + 1] && high[barIdx] > high[barIdx + 2] &&
                        high[barIdx] > high[barIdx - 1] && high[barIdx] > high[barIdx - 2]);
@@ -418,36 +432,39 @@ int OnCalculate(const int rates_total,
          if(is_ph && rph == 0) rph = barIdx;
          if(is_pl && rpl == 0) rpl = barIdx;
 
-         // Bull Wave Tracking
-         if(kh == 0 && k >= 3 && is_ph && high[k] > dh[k] && (close[k] > dh[k] || close[k + 1] > dh[k + 1]))
+         if(i == 0 && k + 1 < maxAvailable)
          {
-            kh = k;
-         }
-         else if(kh == 0)
-         {
-            if(low[k] <= low[k_hl]) k_hl = k;
-            if(low[k] <= dh[k] && tch_u == 0) tch_u = k;
-            inv_u = inv_u || (close[k] < e89[k]);
-         }
-         else if(kl_o == 0 && is_pl)
-         {
-            kl_o = k;
-         }
+            // Bull Wave Tracking
+            if(kh == 0 && k >= 3 && is_ph && high[k] > dh[k] && (close[k] > dh[k] || close[k + 1] > dh[k + 1]))
+            {
+               kh = k;
+            }
+            else if(kh == 0)
+            {
+               if(low[k] <= low[k_hl]) k_hl = k;
+               if(low[k] <= dh[k] && tch_u == 0) tch_u = k;
+               inv_u = inv_u || (close[k] < e89[k]);
+            }
+            else if(kl_o == 0 && is_pl)
+            {
+               kl_o = k;
+            }
 
-         // Bear Wave Tracking
-         if(kl == 0 && k >= 3 && is_pl && low[k] < dl[k] && (close[k] < dl[k] || close[k + 1] < dl[k + 1]))
-         {
-            kl = k;
-         }
-         else if(kl == 0)
-         {
-            if(high[k] >= high[k_lh]) k_lh = k;
-            if(high[k] >= dl[k] && tch_d == 0) tch_d = k;
-            inv_d = inv_d || (close[k] > e89[k]);
-         }
-         else if(kh_o == 0 && is_ph)
-         {
-            kh_o = k;
+            // Bear Wave Tracking
+            if(kl == 0 && k >= 3 && is_pl && low[k] < dl[k] && (close[k] < dl[k] || close[k + 1] < dl[k + 1]))
+            {
+               kl = k;
+            }
+            else if(kl == 0)
+            {
+               if(high[k] >= high[k_lh]) k_lh = k;
+               if(high[k] >= dl[k] && tch_d == 0) tch_d = k;
+               inv_d = inv_d || (close[k] > e89[k]);
+            }
+            else if(kh_o == 0 && is_ph)
+            {
+               kh_o = k;
+            }
          }
       }
 

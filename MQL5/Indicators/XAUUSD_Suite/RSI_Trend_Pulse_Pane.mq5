@@ -332,7 +332,11 @@ int OnCalculate(const int rates_total,
 
    double fullRsi[];
    ArraySetAsSeries(fullRsi, true);
-   if(CopyBuffer(handleRsi, 0, 0, rates_total, fullRsi) <= 0) return(0);
+   int rsiCopied = CopyBuffer(handleRsi, 0, 0, rates_total, fullRsi);
+   if(rsiCopied <= 0) return(0);
+
+   int maxAvailable = MathMin(rates_total, rsiCopied);
+   if(maxAvailable <= InpPivotLookback + 50) return(0);
 
    double r4 = 0, e4 = 0, w4 = 0, s4 = 0;
    double r1 = 0, e1 = 0, w1 = 0, s1 = 0;
@@ -357,14 +361,15 @@ int OnCalculate(const int rates_total,
    double wSum = 45.0 * 46.0 / 2.0;
    double k_ema = 2.0 / (9.0 + 1.0);
 
-   int limit = rates_total - prev_calculated;
-   if(limit <= 0) limit = 1;
+   int limit = (prev_calculated == 0) ? (maxAvailable - 1) : (rates_total - prev_calculated + 2);
+   if(limit >= maxAvailable) limit = maxAvailable - 1;
+   if(limit < 0) limit = 0;
 
-   for(int i = limit - 1; i >= 0; i--)
+   for(int i = limit; i >= 0; i--)
    {
       BufferRsi[i] = fullRsi[i];
 
-      if(i + 45 < rates_total)
+      if(i + 45 < maxAvailable)
       {
          double num = 0.0;
          for(int j = 0; j < 45; j++)
@@ -385,9 +390,11 @@ int OnCalculate(const int rates_total,
       BufferSignalSell[i] = EMPTY_VALUE;
    }
 
-   for(int i = rates_total - 20; i >= 0; i--)
+   int emaStart = (prev_calculated == 0) ? (maxAvailable - 20) : limit;
+   if(emaStart >= maxAvailable) emaStart = maxAvailable - 1;
+   for(int i = emaStart; i >= 0; i--)
    {
-      if(i == rates_total - 20)
+      if(i >= maxAvailable - 20 || i + 1 >= maxAvailable)
       {
          BufferEma9[i] = BufferRsi[i];
       }
@@ -404,7 +411,7 @@ int OnCalculate(const int rates_total,
    double mid_hi = -1.0, mid_lo = 101.0;
    bool used_l = false, used_h = false;
 
-   for(int k = 2; k < InpPivotLookback + 8 && (k + 2) < rates_total; k++)
+   for(int k = 2; k < InpPivotLookback + 8 && (k + 2) < maxAvailable; k++)
    {
       bool r_pl = BufferRsi[k] < BufferRsi[k - 1] && BufferRsi[k] <= BufferRsi[k + 1] && BufferRsi[k] < BufferRsi[k + 2];
       if(kl2_r == 0)

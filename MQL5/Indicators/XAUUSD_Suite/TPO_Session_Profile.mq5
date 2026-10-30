@@ -45,7 +45,7 @@ input color    InpLondonHistColor  = C'18,36,28';   // S2 Histogram Bar
 input color    InpNYHistColor      = C'40,22,22';  // S3 Histogram Bar
 
 input group "=== 5. Visual HUD Dashboard ==="
-input bool     InpShowHUD          = true;          // Show TPO Status Dashboard
+input bool     InpShowHUD          = false;         // Show TPO Status Dashboard (Default OFF to eliminate screen clutter)
 input int      InpHUDCorner        = 1;             // HUD Corner (1 = Top-Right, 0 = Top-Left)
 input color    InpHUDColor         = clrWhite;      // HUD Text Color
 
