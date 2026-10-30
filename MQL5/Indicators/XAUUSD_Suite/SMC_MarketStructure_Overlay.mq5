@@ -39,14 +39,18 @@ input color    InpBearSweepColor   = clrMagenta;    // Bearish Sweep Color
 
 input group "=== 4. Order Blocks (OB) Settings ==="
 input bool     InpShowOB           = true;          // Show Order Blocks
-input color    InpBullOBColor      = clrDarkSeaGreen;// Bullish OB Color
-input color    InpBearOBColor      = clrIndianRed;   // Bearish OB Color
-input int      InpMaxActiveOB      = 8;             // Max Active OBs on Chart
+input color    InpBullOBBorder     = C'50,125,75';   // Bullish OB Border (Frame)
+input color    InpBullOBFill       = C'14,32,20';    // Bullish OB Fill (Dim/Soft)
+input color    InpBearOBBorder     = C'145,60,70';   // Bearish OB Border (Frame)
+input color    InpBearOBFill       = C'32,14,18';    // Bearish OB Fill (Dim/Soft)
+input int      InpMaxActiveOB      = 3;             // Max Active OBs per side
 
 input group "=== 5. Fair Value Gaps (FVG) Settings ==="
 input bool     InpShowFVG          = true;          // Show Fair Value Gaps (FVG)
-input color    InpBullFVGColor     = C'35,55,35';    // Bullish FVG Fill Color (Subtle Dark)
-input color    InpBearFVGColor     = C'55,35,35';    // Bearish FVG Fill Color (Subtle Dark)
+input color    InpBullFVGBorder    = C'45,115,110';  // Bullish FVG Border (Frame)
+input color    InpBullFVGFill      = C'12,28,26';    // Bullish FVG Fill (Dim/Soft)
+input color    InpBearFVGBorder    = C'140,85,55';   // Bearish FVG Border (Frame)
+input color    InpBearFVGFill      = C'30,18,12';    // Bearish FVG Fill (Dim/Soft)
 input double   InpMinFVGPips       = 3.0;           // Min FVG Gap Size (Points/Pips)
 
 input group "=== 6. Premium / Discount & Equilibrium ==="
@@ -72,6 +76,15 @@ double BufferMajorLo[];
 double BufferMinorHi[];
 double BufferMinorLo[];
 
+//--- Structures
+struct OBInfo
+{
+   datetime t1;
+   double   top;
+   double   btm;
+   string   name;
+};
+
 //--- Global Variables
 string prefix;
 datetime lastAlertTime = 0;
@@ -84,6 +97,8 @@ int    g_activeBullFVGCount = 0;
 int    g_activeBearFVGCount = 0;
 double g_currentEqPrice = 0.0;
 string g_currentZone = "Equilibrium";
+string g_lastDrawnOBs[];
+string g_lastDrawnFVGs[];
 
 //+------------------------------------------------------------------+
 //| Custom indicator initialization function                         |
@@ -195,35 +210,98 @@ void DrawSweepLabel(string name, datetime t, double p, color clr, string label, 
 }
 
 //+------------------------------------------------------------------+
+//| Helper: Cleanup Orphaned Graphical Objects                       |
+//+------------------------------------------------------------------+
+void CleanupOrphanObjects(string &activeList[], string &lastList[])
+{
+   int lastCount = ArraySize(lastList);
+   int actCount  = ArraySize(activeList);
+   for(int i = 0; i < lastCount; i++)
+   {
+      string oldName = lastList[i];
+      bool stillActive = false;
+      for(int j = 0; j < actCount; j++)
+      {
+         if(activeList[j] == oldName) { stillActive = true; break; }
+      }
+      if(!stillActive)
+      {
+         ObjectDelete(0, prefix + oldName);
+         ObjectDelete(0, prefix + oldName + "_fill");
+         ObjectDelete(0, prefix + oldName + "_lbl");
+      }
+   }
+   ArrayResize(lastList, actCount);
+   for(int i = 0; i < actCount; i++) lastList[i] = activeList[i];
+}
+
+//+------------------------------------------------------------------+
 //| Helper: Draw Box (Order Block / FVG / Premium-Discount)          |
 //+------------------------------------------------------------------+
-void DrawBox(string name, datetime t1, double top, datetime t2, double btm, color borderClr, color bgClr, bool isFilled, string labelText = "")
+void DrawBox(string name, datetime t1, double top, datetime t2, double btm, color borderClr, color bgClr, bool isFilled, string labelText = "", datetime lblTime = 0)
 {
-   string objName = prefix + name;
-   if(ObjectFind(0, objName) < 0)
+   string frameName = prefix + name;
+   string fillName  = prefix + name + "_fill";
+
+   // 1. Shaded background bar (very soft/dim) behind candlesticks
+   if(isFilled)
    {
-      ObjectCreate(0, objName, OBJ_RECTANGLE, 0, t1, top, t2, btm);
-      ObjectSetInteger(0, objName, OBJPROP_COLOR, borderClr);
-      ObjectSetInteger(0, objName, OBJPROP_BGCOLOR, bgClr);
-      ObjectSetInteger(0, objName, OBJPROP_STYLE, STYLE_SOLID);
-      ObjectSetInteger(0, objName, OBJPROP_WIDTH, 1);
-      ObjectSetInteger(0, objName, OBJPROP_FILL, isFilled);
-      ObjectSetInteger(0, objName, OBJPROP_BACK, true); // Keep strictly behind candlesticks
+      if(ObjectFind(0, fillName) < 0)
+      {
+         ObjectCreate(0, fillName, OBJ_RECTANGLE, 0, t1, top, t2, btm);
+         ObjectSetInteger(0, fillName, OBJPROP_COLOR, bgClr);
+         ObjectSetInteger(0, fillName, OBJPROP_STYLE, STYLE_SOLID);
+         ObjectSetInteger(0, fillName, OBJPROP_FILL, true);
+         ObjectSetInteger(0, fillName, OBJPROP_BACK, true); // Keep strictly behind candlesticks
+      }
+      else
+      {
+         ObjectSetDouble(0, fillName, OBJPROP_PRICE, 0, top);
+         ObjectSetDouble(0, fillName, OBJPROP_PRICE, 1, btm);
+         ObjectSetInteger(0, fillName, OBJPROP_TIME, 0, t1);
+         ObjectSetInteger(0, fillName, OBJPROP_TIME, 1, t2);
+         ObjectSetInteger(0, fillName, OBJPROP_COLOR, bgClr);
+         ObjectSetInteger(0, fillName, OBJPROP_FILL, true);
+         ObjectSetInteger(0, fillName, OBJPROP_BACK, true);
+      }
    }
    else
    {
-      ObjectSetInteger(0, objName, OBJPROP_TIME, 1, t2);
+      ObjectDelete(0, fillName);
    }
 
+   // 2. Crisp outer frame / border
+   if(ObjectFind(0, frameName) < 0)
+   {
+      ObjectCreate(0, frameName, OBJ_RECTANGLE, 0, t1, top, t2, btm);
+      ObjectSetInteger(0, frameName, OBJPROP_COLOR, borderClr);
+      ObjectSetInteger(0, frameName, OBJPROP_STYLE, STYLE_SOLID);
+      ObjectSetInteger(0, frameName, OBJPROP_WIDTH, 1);
+      ObjectSetInteger(0, frameName, OBJPROP_FILL, false);
+      ObjectSetInteger(0, frameName, OBJPROP_BACK, true); // Keep strictly behind candlesticks
+   }
+   else
+   {
+      ObjectSetDouble(0, frameName, OBJPROP_PRICE, 0, top);
+      ObjectSetDouble(0, frameName, OBJPROP_PRICE, 1, btm);
+      ObjectSetInteger(0, frameName, OBJPROP_TIME, 0, t1);
+      ObjectSetInteger(0, frameName, OBJPROP_TIME, 1, t2);
+      ObjectSetInteger(0, frameName, OBJPROP_COLOR, borderClr);
+      ObjectSetInteger(0, frameName, OBJPROP_FILL, false);
+      ObjectSetInteger(0, frameName, OBJPROP_BACK, true);
+   }
+
+   // 3. Crisp text label at the right margin for "canh giá"
    if(labelText != "")
    {
-      string lblName = objName + "_lbl";
+      string lblName = frameName + "_lbl";
+      datetime tPos = (lblTime > 0) ? lblTime : t2;
       if(ObjectFind(0, lblName) < 0)
       {
-         ObjectCreate(0, lblName, OBJ_TEXT, 0, t1, top);
-         ObjectSetString(0, lblName, OBJPROP_TEXT, labelText);
+         ObjectCreate(0, lblName, OBJ_TEXT, 0, tPos, top);
+         ObjectSetString(0, lblName, OBJPROP_TEXT, " " + labelText);
          ObjectSetInteger(0, lblName, OBJPROP_COLOR, borderClr);
-         ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI");
+         ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI Semibold");
          ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 7);
          ObjectSetInteger(0, lblName, OBJPROP_ANCHOR, ANCHOR_LEFT_LOWER);
          ObjectSetInteger(0, lblName, OBJPROP_BACK, true);
@@ -231,14 +309,16 @@ void DrawBox(string name, datetime t1, double top, datetime t2, double btm, colo
       else
       {
          ObjectSetDouble(0, lblName, OBJPROP_PRICE, top);
-         ObjectSetInteger(0, lblName, OBJPROP_TIME, t1);
+         ObjectSetInteger(0, lblName, OBJPROP_TIME, tPos);
+         ObjectSetString(0, lblName, OBJPROP_TEXT, " " + labelText);
+         ObjectSetInteger(0, lblName, OBJPROP_COLOR, borderClr);
       }
    }
 }
 
 void DrawBox(string name, datetime t1, double top, datetime t2, double btm, color clr, bool isFilled)
 {
-   DrawBox(name, t1, top, t2, btm, clr, clr, isFilled, "");
+   DrawBox(name, t1, top, t2, btm, clr, clr, isFilled, "", 0);
 }
 
 //+------------------------------------------------------------------+
@@ -372,59 +452,61 @@ int OnCalculate(const int rates_total,
    // 3. FVG Detection (3-Candle Imbalances)
    g_activeBullFVGCount = 0;
    g_activeBearFVGCount = 0;
+   string activeFvgNames[];
    if(InpShowFVG)
    {
       double minGap = InpMinFVGPips * _Point * 10.0;
-      int activeFvgCount = 0;
-      for(int i = limit; i >= 2 && activeFvgCount < 5; i--)
+      datetime chartEndT = time[0] + PeriodSeconds() * 30;
+      datetime lblT      = time[0] + PeriodSeconds() * 2;
+
+      for(int i = 2; i < limit; i++)
       {
-         // Bullish FVG
-         if(low[i - 2] - high[i] >= minGap)
+         // Bullish FVG (Gap between low[i-2] and high[i])
+         if(g_activeBullFVGCount < 2 && (low[i - 2] - high[i]) >= minGap)
          {
-            datetime endT = time[0];
             bool mitigated = false;
-            for(int m = i - 1; m >= 0; m--)
+            for(int m = i - 3; m >= 0; m--)
             {
-               if(low[m] <= high[i]) { endT = time[m]; mitigated = true; break; }
+               if(low[m] <= high[i]) { mitigated = true; break; }
             }
-            string fvgName = StringFormat("FVG_Bull_%s", TimeToString(time[i - 1]));
             if(!mitigated)
             {
+               string fvgName = StringFormat("FVG_Bull_%s", TimeToString(time[i - 1]));
+               int sz = ArraySize(activeFvgNames);
+               ArrayResize(activeFvgNames, sz + 1);
+               activeFvgNames[sz] = fvgName;
+
+               DrawBox(fvgName, time[i], low[i - 2], chartEndT, high[i],
+                       InpBullFVGBorder, InpBullFVGFill, true, "Bull FVG", lblT);
                g_activeBullFVGCount++;
-               activeFvgCount++;
-               DrawBox(fvgName, time[i], low[i - 2], endT, high[i], C'46,139,87', C'20,52,38', false, "Bull FVG");
-            }
-            else
-            {
-               ObjectDelete(0, prefix + fvgName);
-               ObjectDelete(0, prefix + fvgName + "_lbl");
             }
          }
 
-         // Bearish FVG
-         if(low[i] - high[i - 2] >= minGap)
+         // Bearish FVG (Gap between low[i] and high[i-2])
+         if(g_activeBearFVGCount < 2 && (low[i] - high[i - 2]) >= minGap)
          {
-            datetime endT = time[0];
             bool mitigated = false;
-            for(int m = i - 1; m >= 0; m--)
+            for(int m = i - 3; m >= 0; m--)
             {
-               if(high[m] >= low[i]) { endT = time[m]; mitigated = true; break; }
+               if(high[m] >= low[i]) { mitigated = true; break; }
             }
-            string fvgName = StringFormat("FVG_Bear_%s", TimeToString(time[i - 1]));
             if(!mitigated)
             {
+               string fvgName = StringFormat("FVG_Bear_%s", TimeToString(time[i - 1]));
+               int sz = ArraySize(activeFvgNames);
+               ArrayResize(activeFvgNames, sz + 1);
+               activeFvgNames[sz] = fvgName;
+
+               DrawBox(fvgName, time[i], low[i], chartEndT, high[i - 2],
+                       InpBearFVGBorder, InpBearFVGFill, true, "Bear FVG", lblT);
                g_activeBearFVGCount++;
-               activeFvgCount++;
-               DrawBox(fvgName, time[i], low[i], endT, high[i - 2], C'205,92,92', C'52,22,28', false, "Bear FVG");
-            }
-            else
-            {
-               ObjectDelete(0, prefix + fvgName);
-               ObjectDelete(0, prefix + fvgName + "_lbl");
             }
          }
+
+         if(g_activeBullFVGCount >= 2 && g_activeBearFVGCount >= 2) break;
       }
    }
+   CleanupOrphanObjects(activeFvgNames, g_lastDrawnFVGs);
 
    // 4. Liquidity Pools (Equal Highs EQH / Equal Lows EQL)
    if(InpShowLiquidity)
@@ -467,6 +549,8 @@ int OnCalculate(const int rates_total,
    datetime lastSH_time = 0, lastSL_time = 0;
    int lastSH_bar = 0, lastSL_bar = 0;
 
+   OBInfo bullOBList[];
+   OBInfo bearOBList[];
    g_activeBullOBCount = 0;
    g_activeBearOBCount = 0;
 
@@ -544,32 +628,28 @@ int OnCalculate(const int rates_total,
          }
 
          // Order Block: last down candle before expansion
-         if(InpShowOB && lastSH_bar > i && g_activeBullOBCount < InpMaxActiveOB)
+         if(InpShowOB && lastSH_bar > i)
          {
             int obBar = -1;
-            for(int b = lastSH_bar - 1; b >= i; b--)
+            for(int b = i + 1; b <= lastSH_bar; b++)
             {
                if(close[b] < open[b]) { obBar = b; break; }
             }
             if(obBar > 0)
             {
-               datetime maxEnd = (obBar >= 40) ? time[obBar - 40] : time[0];
-               datetime endT = maxEnd;
                bool mitigated = false;
-               for(int m = obBar - 1; m >= 0; m--)
+               for(int m = i - 1; m >= 0; m--)
                {
-                  if(close[m] < low[obBar]) { endT = time[m]; mitigated = true; break; }
+                  if(close[m] < low[obBar]) { mitigated = true; break; }
                }
-               string obName = StringFormat("OB_Bull_%s", TimeToString(time[obBar]));
                if(!mitigated)
                {
-                  g_activeBullOBCount++;
-                  DrawBox(obName, time[obBar], high[obBar], endT, low[obBar], clrMediumSeaGreen, C'18,48,34', false, "Bull OB");
-               }
-               else
-               {
-                  ObjectDelete(0, prefix + obName);
-                  ObjectDelete(0, prefix + obName + "_lbl");
+                  int sz = ArraySize(bullOBList);
+                  ArrayResize(bullOBList, sz + 1);
+                  bullOBList[sz].t1   = time[obBar];
+                  bullOBList[sz].top  = high[obBar];
+                  bullOBList[sz].btm  = low[obBar];
+                  bullOBList[sz].name = StringFormat("OB_Bull_%s", TimeToString(time[obBar]));
                }
             }
          }
@@ -599,32 +679,28 @@ int OnCalculate(const int rates_total,
          }
 
          // Order Block: last up candle before expansion
-         if(InpShowOB && lastSL_bar > i && g_activeBearOBCount < InpMaxActiveOB)
+         if(InpShowOB && lastSL_bar > i)
          {
             int obBar = -1;
-            for(int b = lastSL_bar - 1; b >= i; b--)
+            for(int b = i + 1; b <= lastSL_bar; b++)
             {
                if(close[b] > open[b]) { obBar = b; break; }
             }
             if(obBar > 0)
             {
-               datetime maxEnd = (obBar >= 40) ? time[obBar - 40] : time[0];
-               datetime endT = maxEnd;
                bool mitigated = false;
-               for(int m = obBar - 1; m >= 0; m--)
+               for(int m = i - 1; m >= 0; m--)
                {
-                  if(close[m] > high[obBar]) { endT = time[m]; mitigated = true; break; }
+                  if(close[m] > high[obBar]) { mitigated = true; break; }
                }
-               string obName = StringFormat("OB_Bear_%s", TimeToString(time[obBar]));
                if(!mitigated)
                {
-                  g_activeBearOBCount++;
-                  DrawBox(obName, time[obBar], high[obBar], endT, low[obBar], clrIndianRed, C'48,20,24', false, "Bear OB");
-               }
-               else
-               {
-                  ObjectDelete(0, prefix + obName);
-                  ObjectDelete(0, prefix + obName + "_lbl");
+                  int sz = ArraySize(bearOBList);
+                  ArrayResize(bearOBList, sz + 1);
+                  bearOBList[sz].t1   = time[obBar];
+                  bearOBList[sz].top  = high[obBar];
+                  bearOBList[sz].btm  = low[obBar];
+                  bearOBList[sz].name = StringFormat("OB_Bear_%s", TimeToString(time[obBar]));
                }
             }
          }
@@ -633,6 +709,48 @@ int OnCalculate(const int rates_total,
          lastSL    = EMPTY_VALUE; // Consumed
       }
    }
+
+   // 5b. Render Most Recent Active Unmitigated Order Blocks
+   datetime obChartEndT = time[0] + PeriodSeconds() * 30;
+   datetime obLblT      = time[0] + PeriodSeconds() * 2;
+   int maxOB = MathMin(InpMaxActiveOB, 3);
+   string activeOBNames[];
+
+   // Render recent Bull OBs
+   int totalBullOB = ArraySize(bullOBList);
+   int drawnBullOB = 0;
+   for(int k = totalBullOB - 1; k >= 0; k--)
+   {
+      if(drawnBullOB < maxOB)
+      {
+         DrawBox(bullOBList[k].name, bullOBList[k].t1, bullOBList[k].top, obChartEndT, bullOBList[k].btm,
+                 InpBullOBBorder, InpBullOBFill, true, "Bull OB", obLblT);
+         int sz = ArraySize(activeOBNames);
+         ArrayResize(activeOBNames, sz + 1);
+         activeOBNames[sz] = bullOBList[k].name;
+         drawnBullOB++;
+      }
+   }
+   g_activeBullOBCount = drawnBullOB;
+
+   // Render recent Bear OBs
+   int totalBearOB = ArraySize(bearOBList);
+   int drawnBearOB = 0;
+   for(int k = totalBearOB - 1; k >= 0; k--)
+   {
+      if(drawnBearOB < maxOB)
+      {
+         DrawBox(bearOBList[k].name, bearOBList[k].t1, bearOBList[k].top, obChartEndT, bearOBList[k].btm,
+                 InpBearOBBorder, InpBearOBFill, true, "Bear OB", obLblT);
+         int sz = ArraySize(activeOBNames);
+         ArrayResize(activeOBNames, sz + 1);
+         activeOBNames[sz] = bearOBList[k].name;
+         drawnBearOB++;
+      }
+   }
+   g_activeBearOBCount = drawnBearOB;
+
+   CleanupOrphanObjects(activeOBNames, g_lastDrawnOBs);
 
    // 6. Dealing Range (Premium / Discount / Equilibrium)
    double activeHi = 0.0, activeLo = 0.0;
