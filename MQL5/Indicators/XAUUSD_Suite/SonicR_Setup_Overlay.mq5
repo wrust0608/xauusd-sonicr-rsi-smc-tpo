@@ -1,4 +1,4 @@
-//+------------------------------------------------------------------+
+﻿//+------------------------------------------------------------------+
 //|                                         SonicR_Setup_Overlay.mq5 |
 //|                                  Copyright 2026, Antigravity AI |
 //|                       XAUUSD Quantitative Visualizer - Unleashed |
@@ -8,6 +8,7 @@
 #property version     "2.55"
 #property description "XAUUSD Sonic R Suite: Dragon Cloud, Trend 89, Macro 200, Swings, Round Numbers, Clean HUD & MTF Signals"
 #property indicator_chart_window
+#include <XAUUSD_Suite\VN_Lang.mqh>
 #property indicator_buffers 12
 #property indicator_plots   7
 
@@ -84,14 +85,22 @@ input bool     InpEnableWickRejection = true;          // Enable Wick Rejection 
 input double   InpMinWickRatio        = 0.35;          // Min Wick Ratio (35% of Candle Range)
 input double   InpMinCandleRangePts   = 1.50;          // Min Candle Range in Points ($1.50 on Gold)
 input bool     InpRequireKeyZone      = true;          // Require Touch of Dragon EMA 34 / 89 / 200 / Round
-input color    InpBullWickColor       = clrSpringGreen;// Bullish Wick Rejection Color
-input color    InpBearWickColor       = clrTomato;     // Bearish Wick Rejection Color
+input color    InpBullWickColor       = clrSpringGreen;// Rút râu Mua Color
+input color    InpBearWickColor       = clrTomato;     // Rút râu Bán Color
 input bool     InpShowWickTags        = false;         // Show Text Tag at Wick Tip (false = clean arrows only)
 
+enum ENUM_HUD_POSITION
+{
+   HUD_TOP_LEFT     = 1, // Góc trên bên trái (Mặc định - Không đụng nến)
+   HUD_TOP_RIGHT    = 0, // Góc trên bên phải
+   HUD_BOTTOM_LEFT  = 2, // Góc dưới bên trái
+   HUD_BOTTOM_RIGHT = 3  // Góc dưới bên phải
+};
+
 input group "=== 5. Visual Dashboard & HUD ==="
-input bool     InpShowHUD        = true;        // Show On-Chart Information HUD
-input int      InpHUDCorner      = 1;           // HUD Corner (1 = Top Right, 0 = Top Left)
-input color    InpHUDColor       = clrWhite;    // HUD Text Color
+input bool              InpShowHUD        = true;        // Hiển thị bảng HUD trạng thái (Show On-Chart HUD)
+input ENUM_HUD_POSITION InpHUDCorner      = HUD_TOP_LEFT;// Vị trí bảng HUD (Mặc định: Góc trên trái)
+input color             InpHUDColor       = clrWhite;    // Màu chữ HUD
 
 input group "=== 6. Multi-Channel Alert Settings ==="
 input bool     InpEnablePopup    = false;       // Enable Pop-up Alert
@@ -129,7 +138,7 @@ double   lock_pl;
 datetime lastAlertTime;
 datetime lastWickAlertTime = 0;
 string   prefix;
-string   g_lastWickRejStatus = "SCANNING FOR WICK...";
+string   g_lastWickRejStatus = "";
 double   g_lastWickSL = 0.0;
 double   g_lastWickTP = 0.0;
 
@@ -266,44 +275,61 @@ void RenderHUD(bool htf_up, bool htf_dn, bool m15_up, bool m15_dn, double distDr
 {
    if(!InpShowHUD) return;
 
-   int startX = 15;
-   int startY = 15;
-   int width  = 215;
-   int height = 120;
+   ENUM_BASE_CORNER corner = CORNER_LEFT_UPPER;
+   if(InpHUDCorner == HUD_TOP_RIGHT || InpHUDCorner == 0)
+      corner = CORNER_RIGHT_UPPER;
+   else if(InpHUDCorner == HUD_BOTTOM_RIGHT || InpHUDCorner == 3)
+      corner = CORNER_RIGHT_LOWER;
+   else if(InpHUDCorner == HUD_BOTTOM_LEFT || InpHUDCorner == 2)
+      corner = CORNER_LEFT_LOWER;
+   else
+      corner = CORNER_LEFT_UPPER;
+
+   string bgName = prefix + "BG";
+   if((ObjectFind(0, bgName) >= 0 && ObjectGetInteger(0, bgName, OBJPROP_CORNER) != corner) ||
+      (ObjectFind(0, prefix + "0") >= 0 && ObjectGetInteger(0, prefix + "0", OBJPROP_CORNER) != corner))
+   {
+      ObjectsDeleteAll(0, prefix);
+   }
+
+   int startX = 20;
+   int startY = 42;
+   int width  = 245;
+   int height = 135;
 
    // HUD Background Box
-   string bgName = prefix + "BG";
    if(ObjectFind(0, bgName) < 0)
    {
       ObjectCreate(0, bgName, OBJ_RECTANGLE_LABEL, 0, 0, 0);
       ObjectSetInteger(0, bgName, OBJPROP_BGCOLOR, C'15,18,24');
       ObjectSetInteger(0, bgName, OBJPROP_BORDER_COLOR, C'45,55,72');
       ObjectSetInteger(0, bgName, OBJPROP_BORDER_TYPE, BORDER_FLAT);
+      ObjectSetInteger(0, bgName, OBJPROP_COLOR, C'45,55,72');
       ObjectSetInteger(0, bgName, OBJPROP_BACK, false);
    }
-   ObjectSetInteger(0, bgName, OBJPROP_CORNER, CORNER_RIGHT_UPPER);
+   ObjectSetInteger(0, bgName, OBJPROP_CORNER, corner);
    ObjectSetInteger(0, bgName, OBJPROP_XDISTANCE, startX);
    ObjectSetInteger(0, bgName, OBJPROP_YDISTANCE, startY);
    ObjectSetInteger(0, bgName, OBJPROP_XSIZE, width);
    ObjectSetInteger(0, bgName, OBJPROP_YSIZE, height);
 
-   string lines[7];
-   lines[0] = "SONIC R XAUUSD (M5)";
-   lines[1] = StringFormat("H4 Trend : %s", htf_up ? "BULLISH (UP)" : (htf_dn ? "BEARISH (DOWN)" : "NEUTRAL/TANGLE"));
-   lines[2] = StringFormat("M15 Wait : %s", m15_up ? "BUY ZONE (40-50)" : (m15_dn ? "SELL ZONE (50-60)" : "NO SETUP"));
-   lines[3] = StringFormat("M5 Wave  : %s", waveStatus);
-   lines[4] = StringFormat("Dist Dragon: %.2f pts", distDragon);
-   lines[5] = StringFormat("Rej Radar: %s", g_lastWickRejStatus);
-   lines[6] = (g_lastWickSL > 0.0) ? StringFormat("Wick SL/TP: $%.2f / $%.2f", g_lastWickSL, g_lastWickTP)
-                                   : StringFormat("Dyn SL/TP : $%.2f / $%.2f", InpAtrSlMultiplier * atrVal, InpAtrTpMultiplier * atrVal);
+      string lines[7];
+   lines[0] = VN_SONIC_TITLE;
+   lines[1] = StringFormat(VN_H4_TREND_LABEL, htf_up ? VN_TREND_BULL_STRONG : (htf_dn ? VN_TREND_BEAR_STRONG : VN_TREND_SIDEWAYS));
+   lines[2] = StringFormat(VN_M15_WAIT_LABEL, m15_up ? VN_M15_WAIT_BUY : (m15_dn ? VN_M15_WAIT_SELL : VN_M15_WAIT_SIGNAL));
+   lines[3] = StringFormat(VN_M5_STRUCT_LABEL, waveStatus);
+   lines[4] = StringFormat(VN_DRAGON_DIST_LABEL, distDragon);
+   lines[5] = StringFormat(VN_RADAR_LABEL, g_lastWickRejStatus);
+   lines[6] = (g_lastWickSL > 0.0) ? StringFormat(VN_SLTP_WICK_LABEL, g_lastWickSL, g_lastWickTP)
+                                   : StringFormat(VN_SLTP_ATR_LABEL, InpAtrSlMultiplier * atrVal, InpAtrTpMultiplier * atrVal);
 
    color lineClrs[7];
    lineClrs[0] = clrGold;
    lineClrs[1] = htf_up ? clrSpringGreen : (htf_dn ? clrTomato : clrYellow);
    lineClrs[2] = (m15_up || m15_dn) ? clrGold : clrLightSlateGray;
-   lineClrs[3] = (StringFind(waveStatus, "BULL") >= 0) ? clrSpringGreen : ((StringFind(waveStatus, "BEAR") >= 0) ? clrTomato : clrCyan);
+   lineClrs[3] = (StringFind(waveStatus, "TĂNG") >= 0 || StringFind(waveStatus, "BULL") >= 0) ? clrSpringGreen : ((StringFind(waveStatus, "GIẢM") >= 0 || StringFind(waveStatus, "BEAR") >= 0) ? clrTomato : clrCyan);
    lineClrs[4] = clrSilver;
-   lineClrs[5] = (StringFind(g_lastWickRejStatus, "⮟") >= 0) ? clrTomato : ((StringFind(g_lastWickRejStatus, "⮝") >= 0) ? clrSpringGreen : clrYellow);
+   lineClrs[5] = (StringFind(g_lastWickRejStatus, "?") >= 0) ? clrTomato : ((StringFind(g_lastWickRejStatus, "?") >= 0) ? clrSpringGreen : clrYellow);
    lineClrs[6] = (g_lastWickSL > 0.0) ? clrCyan : clrSilver;
 
    for(int i = 0; i < 7; i++)
@@ -312,14 +338,22 @@ void RenderHUD(bool htf_up, bool htf_dn, bool m15_up, bool m15_dn, double distDr
       if(ObjectFind(0, lblName) < 0)
       {
          ObjectCreate(0, lblName, OBJ_LABEL, 0, 0, 0);
-         ObjectSetString(0, lblName, OBJPROP_FONT, (i == 0) ? "Segoe UI Bold" : "Segoe UI Semibold");
+         ObjectSetString(0, lblName, OBJPROP_FONT, (i == 0) ? "Segoe UI" : "Segoe UI");
          ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 8);
          ObjectSetInteger(0, lblName, OBJPROP_BACK, false);
       }
-      ObjectSetInteger(0, lblName, OBJPROP_CORNER, CORNER_RIGHT_UPPER);
+      ObjectSetInteger(0, lblName, OBJPROP_CORNER, corner);
       ObjectSetInteger(0, lblName, OBJPROP_ANCHOR, ANCHOR_LEFT_UPPER);
-      ObjectSetInteger(0, lblName, OBJPROP_XDISTANCE, startX + width - 10);
-      ObjectSetInteger(0, lblName, OBJPROP_YDISTANCE, startY + 8 + (i * 15));
+      if(corner == CORNER_RIGHT_UPPER || corner == CORNER_RIGHT_LOWER)
+         ObjectSetInteger(0, lblName, OBJPROP_XDISTANCE, startX + width - 10);
+      else
+         ObjectSetInteger(0, lblName, OBJPROP_XDISTANCE, startX + 10);
+
+      if(corner == CORNER_LEFT_LOWER || corner == CORNER_RIGHT_LOWER)
+         ObjectSetInteger(0, lblName, OBJPROP_YDISTANCE, startY + height - 16 - (i * 16));
+      else
+         ObjectSetInteger(0, lblName, OBJPROP_YDISTANCE, startY + 8 + (i * 16));
+
       ObjectSetString(0, lblName, OBJPROP_TEXT, lines[i]);
       ObjectSetInteger(0, lblName, OBJPROP_COLOR, lineClrs[i]);
    }
@@ -413,7 +447,7 @@ int OnCalculate(const int rates_total,
    bool m15_dn = ok15 && (r15 >= 48.0 && r15 <= 62.0);
 
    // 2. Main Loop for M5 Indicators and Execution
-   string waveStr = "SEARCHING WAVE";
+   string waveStr = "ĐANG TÌM SÓNG";
    if(!InpShowWickTags) ObjectsDeleteAll(0, prefix + "Wick_");
 
    for(int i = limit; i >= 0; i--)
@@ -445,7 +479,7 @@ int OnCalculate(const int rates_total,
 
             double body = MathAbs(close[i] - open[i]);
 
-            // Bearish Wick Rejection (Rút râu trên tại cản)
+            // Rút râu Bán (Rút râu trên tại cản)
             if(uRatio >= InpMinWickRatio && uWick >= 1.2 * body && (close[i] < open[i] || (close[i] - low[i]) / cRange <= 0.40))
             {
                // Anti-cluster: Skip if previous bar already fired and current bar didn't make a higher wick
@@ -458,17 +492,17 @@ int OnCalculate(const int rates_total,
                double tol = MathMax(1.0, 0.40 * atr[i]);
                string zName = "";
                if(high[i] >= e89[i] - tol && close[i] <= e89[i] + tol)
-                  zName = "EMA 89";
+                  zName = VN_ZONE_EMA89;
                else if(high[i] >= e200[i] - tol && close[i] <= e200[i] + tol)
-                  zName = "EMA 200";
+                  zName = VN_ZONE_EMA200;
                else if(high[i] >= dh[i] - tol && close[i] <= dh[i] + tol)
-                  zName = "Dragon High";
+                  zName = VN_ZONE_DRAGON_HIGH;
                else if(high[i] >= dc[i] - tol && close[i] <= dc[i] + tol)
-                  zName = "EMA 34 Close";
+                  zName = VN_ZONE_DRAGON_AXIS;
                else if(high[i] >= dl[i] - tol && close[i] <= dl[i] + tol)
-                  zName = "Dragon Low";
+                  zName = VN_ZONE_DRAGON_LOW;
                else if(!InpRequireKeyZone)
-                  zName = "Upper Wick";
+                  zName = VN_ZONE_UPPER_WICK;
 
                   if(zName != "")
                   {
@@ -482,7 +516,7 @@ int OnCalculate(const int rates_total,
                            ObjectCreate(0, lblName, OBJ_TEXT, 0, time[i], high[i] + (0.35 * _Point * 10));
                            ObjectSetString(0, lblName, OBJPROP_TEXT, StringFormat("⮟ %s (%.0f%%)", zName, uRatio * 100.0));
                            ObjectSetInteger(0, lblName, OBJPROP_COLOR, InpBearWickColor);
-                           ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI Semibold");
+                           ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI");
                            ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 7);
                            ObjectSetInteger(0, lblName, OBJPROP_ANCHOR, ANCHOR_LOWER);
                            ObjectSetInteger(0, lblName, OBJPROP_BACK, true);
@@ -499,7 +533,7 @@ int OnCalculate(const int rates_total,
                         if(time[1] != lastWickAlertTime)
                         {
                            lastWickAlertTime = time[1];
-                           string msg = StringFormat("[BẮT RÂU ALERT] %s M5: ⮟ Bearish Wick Rejection (%.0f%%) at %s | Price: %.2f | SL: %.2f [+$%.2f] | TP: %.2f [-$%.2f] (RR 1:2)",
+                           string msg = StringFormat(VN_ALERT_BEAR_REJ,
                                                      _Symbol, uRatio * 100.0, zName, close[1], g_lastWickSL, rk, g_lastWickTP, 2.0 * rk);
                            if(!MQLInfoInteger(MQL_TESTER) && InpEnablePopup) Alert(msg);
                            if(InpEnableSound) PlaySound("alert.wav");
@@ -511,7 +545,7 @@ int OnCalculate(const int rates_total,
                }
             }
 
-            // Bullish Wick Rejection (Rút râu dưới tại cản)
+            // Rút râu Mua (Rút râu dưới tại cản)
             if(lRatio >= InpMinWickRatio && lWick >= 1.2 * body && (close[i] > open[i] || (high[i] - close[i]) / cRange <= 0.40))
             {
                // Anti-cluster: Skip if previous bar already fired and current bar didn't make a lower wick
@@ -524,17 +558,17 @@ int OnCalculate(const int rates_total,
                double tol = MathMax(1.0, 0.40 * atr[i]);
                string zName = "";
                if(low[i] <= e89[i] + tol && close[i] >= e89[i] - tol)
-                  zName = "EMA 89";
+                  zName = VN_ZONE_EMA89;
                else if(low[i] <= e200[i] + tol && close[i] >= e200[i] - tol)
-                  zName = "EMA 200";
+                  zName = VN_ZONE_EMA200;
                else if(low[i] <= dl[i] + tol && close[i] >= dl[i] - tol)
-                  zName = "Dragon Low";
+                  zName = VN_ZONE_DRAGON_LOW;
                else if(low[i] <= dc[i] + tol && close[i] >= dc[i] - tol)
-                  zName = "EMA 34 Close";
+                  zName = VN_ZONE_DRAGON_AXIS;
                else if(low[i] <= dh[i] + tol && close[i] >= dh[i] - tol)
-                  zName = "Dragon High";
+                  zName = VN_ZONE_DRAGON_HIGH;
                else if(!InpRequireKeyZone)
-                  zName = "Lower Wick";
+                  zName = VN_ZONE_LOWER_WICK;
 
                   if(zName != "")
                   {
@@ -548,7 +582,7 @@ int OnCalculate(const int rates_total,
                            ObjectCreate(0, lblName, OBJ_TEXT, 0, time[i], low[i] - (0.35 * _Point * 10));
                            ObjectSetString(0, lblName, OBJPROP_TEXT, StringFormat("⮝ %s (%.0f%%)", zName, lRatio * 100.0));
                            ObjectSetInteger(0, lblName, OBJPROP_COLOR, InpBullWickColor);
-                           ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI Semibold");
+                           ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI");
                            ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 7);
                            ObjectSetInteger(0, lblName, OBJPROP_ANCHOR, ANCHOR_UPPER);
                            ObjectSetInteger(0, lblName, OBJPROP_BACK, true);
@@ -565,7 +599,7 @@ int OnCalculate(const int rates_total,
                         if(time[1] != lastWickAlertTime)
                         {
                            lastWickAlertTime = time[1];
-                           string msg = StringFormat("[BẮT RÂU ALERT] %s M5: ⮝ Bullish Wick Rejection (%.0f%%) at %s | Price: %.2f | SL: %.2f [-$%.2f] | TP: %.2f [+$%.2f] (RR 1:2)",
+                           string msg = StringFormat(VN_ALERT_BULL_REJ,
                                                      _Symbol, lRatio * 100.0, zName, close[1], g_lastWickSL, rk, g_lastWickTP, 2.0 * rk);
                            if(!MQLInfoInteger(MQL_TESTER) && InpEnablePopup) Alert(msg);
                            if(InpEnableSound) PlaySound("alert.wav");
@@ -654,8 +688,8 @@ int OnCalculate(const int rates_total,
          bool w_up = (kl_o > kh && kh > k_hl && k_hl >= 2 && 2 <= tch_u && tch_u < kh && !inv_u && low[1] >= low[k_hl] && low[k_hl] > low[kl_o]);
          bool w_dn = (kh_o > kl && kl > k_lh && k_lh >= 2 && 2 <= tch_d && tch_d < kl && !inv_d && high[1] <= high[k_lh] && high[k_lh] < high[kh_o]);
 
-         if(w_up) waveStr = "BULL WAVE (L-H-HL)";
-         if(w_dn) waveStr = "BEAR WAVE (H-L-LH)";
+         if(w_up) waveStr = VN_M5_BULL_WAVE;
+         if(w_dn) waveStr = VN_M5_BEAR_WAVE;
 
          bool ev_up = (InpTriggerMode == 0) ? (close[1] > dh[1] && close[1] > open[1] && (close[2] <= dh[2] || low[2] <= dh[2])) : (close[1] > ph && close[2] <= ph);
          bool ev_dn = (InpTriggerMode == 0) ? (close[1] < dl[1] && close[1] < open[1] && (close[2] >= dl[2] || high[2] >= dl[2])) : (close[1] < pl && close[2] >= pl);

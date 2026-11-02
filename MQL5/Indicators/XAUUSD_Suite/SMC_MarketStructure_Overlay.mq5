@@ -1,4 +1,4 @@
-//+------------------------------------------------------------------+
+﻿//+------------------------------------------------------------------+
 //|                                 SMC_MarketStructure_Overlay.mq5 |
 //|                                  Copyright 2026, Antigravity AI |
 //|                       XAUUSD Quantitative Visualizer - Unleashed |
@@ -8,6 +8,7 @@
 #property version     "2.55"
 #property description "XAUUSD Smart Money Concepts Suite: Major & Internal Structure (BOS/CHoCH), Order Blocks, FVGs, EQH/EQL, Liquidity Sweeps, Premium/Discount & Clean HUD"
 #property indicator_chart_window
+#include <XAUUSD_Suite\VN_Lang.mqh>
 #property indicator_buffers 4
 #property indicator_plots   0
 
@@ -162,7 +163,7 @@ void DrawStructureLine(string name, datetime t1, double p1, datetime t2, double 
       ObjectCreate(0, lblName, OBJ_TEXT, 0, midTime, p1);
       ObjectSetString(0, lblName, OBJPROP_TEXT, text);
       ObjectSetInteger(0, lblName, OBJPROP_COLOR, clr);
-      ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI Semibold");
+      ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI");
       ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 8);
       ObjectSetInteger(0, lblName, OBJPROP_ANCHOR, ANCHOR_LOWER);
    }
@@ -203,7 +204,7 @@ void DrawSweepLabel(string name, datetime t, double p, color clr, string label, 
       ObjectCreate(0, objName, OBJ_TEXT, 0, t, p);
       ObjectSetString(0, objName, OBJPROP_TEXT, label);
       ObjectSetInteger(0, objName, OBJPROP_COLOR, clr);
-      ObjectSetString(0, objName, OBJPROP_FONT, "Segoe UI Bold");
+      ObjectSetString(0, objName, OBJPROP_FONT, "Segoe UI");
       ObjectSetInteger(0, objName, OBJPROP_FONTSIZE, 7);
       ObjectSetInteger(0, objName, OBJPROP_ANCHOR, isBull ? ANCHOR_UPPER : ANCHOR_LOWER);
    }
@@ -301,7 +302,7 @@ void DrawBox(string name, datetime t1, double top, datetime t2, double btm, colo
          ObjectCreate(0, lblName, OBJ_TEXT, 0, tPos, top);
          ObjectSetString(0, lblName, OBJPROP_TEXT, " " + labelText);
          ObjectSetInteger(0, lblName, OBJPROP_COLOR, borderClr);
-         ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI Semibold");
+         ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI");
          ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 7);
          ObjectSetInteger(0, lblName, OBJPROP_ANCHOR, ANCHOR_LEFT_LOWER);
          ObjectSetInteger(0, lblName, OBJPROP_BACK, true);
@@ -348,12 +349,11 @@ void UpdateHUD(int activeTrend, double currentPrice, double rangeHigh, double ra
    ObjectSetInteger(0, bgName, OBJPROP_XSIZE, width);
    ObjectSetInteger(0, bgName, OBJPROP_YSIZE, height);
 
-   string lines[4];
-   lines[0] = "SMC STRUCTURE (M5)";
-   lines[1] = StringFormat("Bias: %s", (activeTrend > 0) ? "BULLISH (BOS)" : (activeTrend < 0) ? "BEARISH (BOS)" : "RANGING / NEUTRAL");
-   lines[2] = StringFormat("Range: %.1f - %.1f | EQ: %.1f", rangeLow, rangeHigh, g_currentEqPrice);
-   lines[3] = StringFormat("Zone: %s | OB: %d/%d | FVG: %d", g_currentZone, g_activeBullOBCount, g_activeBearOBCount, g_activeBullFVGCount + g_activeBearFVGCount);
-
+      string lines[4];
+   lines[0] = VN_SMC_TITLE;
+   lines[1] = StringFormat(VN_SMC_TREND_LABEL, (activeTrend > 0) ? VN_SMC_TREND_BULL : (activeTrend < 0) ? VN_SMC_TREND_BEAR : VN_SMC_TREND_RANGE);
+   lines[2] = StringFormat(VN_SMC_RANGE_LABEL, rangeLow, rangeHigh, g_currentEqPrice);
+   lines[3] = StringFormat(VN_SMC_ZONE_LABEL, (g_currentZone == "Premium" ? VN_SMC_ZONE_PREMIUM : (g_currentZone == "Discount" ? VN_SMC_ZONE_DISCOUNT : VN_SMC_ZONE_EQ)), g_activeBullOBCount, g_activeBearOBCount, g_activeBullFVGCount + g_activeBearFVGCount);
    color lineClrs[4];
    lineClrs[0] = clrGold;
    lineClrs[1] = (activeTrend > 0) ? clrSpringGreen : (activeTrend < 0) ? clrTomato : clrYellow;
@@ -366,7 +366,7 @@ void UpdateHUD(int activeTrend, double currentPrice, double rangeHigh, double ra
       if(ObjectFind(0, lblName) < 0)
       {
          ObjectCreate(0, lblName, OBJ_LABEL, 0, 0, 0);
-         ObjectSetString(0, lblName, OBJPROP_FONT, (k == 0) ? "Segoe UI Bold" : "Segoe UI Semibold");
+         ObjectSetString(0, lblName, OBJPROP_FONT, (k == 0) ? "Segoe UI" : "Segoe UI");
          ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 8);
          ObjectSetInteger(0, lblName, OBJPROP_BACK, false);
       }
@@ -477,7 +477,7 @@ int OnCalculate(const int rates_total,
                activeFvgNames[sz] = fvgName;
 
                DrawBox(fvgName, time[i], low[i - 2], chartEndT, high[i],
-                       InpBullFVGBorder, InpBullFVGFill, true, "Bull FVG", lblT);
+                       InpBullFVGBorder, InpBullFVGFill, true, VN_SMC_FVG_BUY, lblT);
                g_activeBullFVGCount++;
             }
          }
@@ -498,7 +498,7 @@ int OnCalculate(const int rates_total,
                activeFvgNames[sz] = fvgName;
 
                DrawBox(fvgName, time[i], low[i], chartEndT, high[i - 2],
-                       InpBearFVGBorder, InpBearFVGFill, true, "Bear FVG", lblT);
+                       InpBearFVGBorder, InpBearFVGFill, true, VN_SMC_FVG_SELL, lblT);
                g_activeBearFVGCount++;
             }
          }
@@ -524,7 +524,7 @@ int OnCalculate(const int rates_total,
             if(prevSH != EMPTY_VALUE && MathAbs(BufferMajorHi[i] - prevSH) <= eqTol)
             {
                string eqhName = StringFormat("EQH_%s", TimeToString(time[i]));
-               DrawLiquidityLine(eqhName, prevSH_time, BufferMajorHi[i], time[0], InpLiquidityColor, "$$$ EQH");
+               DrawLiquidityLine(eqhName, prevSH_time, BufferMajorHi[i], time[0], InpLiquidityColor, "$$ Đỉnh Bằng (EQH)");
             }
             prevSH = BufferMajorHi[i];
             prevSH_time = time[i];
@@ -535,7 +535,7 @@ int OnCalculate(const int rates_total,
             if(prevSL != EMPTY_VALUE && MathAbs(BufferMajorLo[i] - prevSL) <= eqTol)
             {
                string eqlName = StringFormat("EQL_%s", TimeToString(time[i]));
-               DrawLiquidityLine(eqlName, prevSL_time, BufferMajorLo[i], time[0], InpLiquidityColor, "$$$ EQL");
+               DrawLiquidityLine(eqlName, prevSL_time, BufferMajorLo[i], time[0], InpLiquidityColor, "$$ Đáy Bằng (EQL)");
             }
             prevSL = BufferMajorLo[i];
             prevSL_time = time[i];
@@ -579,7 +579,7 @@ int OnCalculate(const int rates_total,
             {
                lastSweepBearTime = time[i];
                string sfpName = StringFormat("SFP_Bear_%s", TimeToString(time[i]));
-               DrawSweepLabel(sfpName, time[i], high[i], InpBearSweepColor, "SFP", false);
+               DrawSweepLabel(sfpName, time[i], high[i], InpBearSweepColor, VN_SMC_SFP, false);
                if(i == 1 && time[1] != lastAlertTime)
                {
                   TriggerAlert(StringFormat("[SMC ALERT] %s M%d: Bearish Liquidity Sweep (SFP) at %.2f", _Symbol, _Period, high[1]));
@@ -596,7 +596,7 @@ int OnCalculate(const int rates_total,
             {
                lastSweepBullTime = time[i];
                string sfpName = StringFormat("SFP_Bull_%s", TimeToString(time[i]));
-               DrawSweepLabel(sfpName, time[i], low[i], InpBullSweepColor, "SFP", true);
+               DrawSweepLabel(sfpName, time[i], low[i], InpBullSweepColor, VN_SMC_SFP, true);
                if(i == 1 && time[1] != lastAlertTime)
                {
                   TriggerAlert(StringFormat("[SMC ALERT] %s M%d: Bullish Liquidity Sweep (SFP) at %.2f", _Symbol, _Period, low[1]));
@@ -724,7 +724,7 @@ int OnCalculate(const int rates_total,
       if(drawnBullOB < maxOB)
       {
          DrawBox(bullOBList[k].name, bullOBList[k].t1, bullOBList[k].top, obChartEndT, bullOBList[k].btm,
-                 InpBullOBBorder, InpBullOBFill, true, "Bull OB", obLblT);
+                 InpBullOBBorder, InpBullOBFill, true, VN_SMC_OB_BUY, obLblT);
          int sz = ArraySize(activeOBNames);
          ArrayResize(activeOBNames, sz + 1);
          activeOBNames[sz] = bullOBList[k].name;
@@ -741,7 +741,7 @@ int OnCalculate(const int rates_total,
       if(drawnBearOB < maxOB)
       {
          DrawBox(bearOBList[k].name, bearOBList[k].t1, bearOBList[k].top, obChartEndT, bearOBList[k].btm,
-                 InpBearOBBorder, InpBearOBFill, true, "Bear OB", obLblT);
+                 InpBearOBBorder, InpBearOBFill, true, VN_SMC_OB_SELL, obLblT);
          int sz = ArraySize(activeOBNames);
          ArrayResize(activeOBNames, sz + 1);
          activeOBNames[sz] = bearOBList[k].name;
@@ -806,7 +806,7 @@ int OnCalculate(const int rates_total,
 
             string eqLblName = eqLineName + "_lbl";
             ObjectCreate(0, eqLblName, OBJ_TEXT, 0, time[0], g_currentEqPrice);
-            ObjectSetString(0, eqLblName, OBJPROP_TEXT, StringFormat("  50%% EQ: %.2f", g_currentEqPrice));
+            ObjectSetString(0, eqLblName, OBJPROP_TEXT, StringFormat(VN_SMC_EQ_FMT, g_currentEqPrice));
             ObjectSetInteger(0, eqLblName, OBJPROP_COLOR, InpEquilibriumColor);
             ObjectSetString(0, eqLblName, OBJPROP_FONT, "Segoe UI");
             ObjectSetInteger(0, eqLblName, OBJPROP_FONTSIZE, 7);
@@ -818,7 +818,7 @@ int OnCalculate(const int rates_total,
             ObjectSetDouble(0, eqLineName, OBJPROP_PRICE, 1, g_currentEqPrice);
             ObjectSetInteger(0, eqLineName + "_lbl", OBJPROP_TIME, time[0]);
             ObjectSetDouble(0, eqLineName + "_lbl", OBJPROP_PRICE, g_currentEqPrice);
-            ObjectSetString(0, eqLineName + "_lbl", OBJPROP_TEXT, StringFormat("  50%% EQ: %.2f", g_currentEqPrice));
+            ObjectSetString(0, eqLineName + "_lbl", OBJPROP_TEXT, StringFormat(VN_SMC_EQ_FMT, g_currentEqPrice));
          }
       }
 

@@ -1,4 +1,4 @@
-//+------------------------------------------------------------------+
+﻿//+------------------------------------------------------------------+
 //|                                         TPO_Session_Profile.mq5 |
 //|                                  Copyright 2026, Antigravity AI |
 //|                       XAUUSD Quantitative Visualizer - Unleashed |
@@ -8,6 +8,7 @@
 #property version     "2.55"
 #property description "XAUUSD Time Price Opportunity (TPO) Market Profile Suite: S1/S2/S3 VN Sessions, 70% Value Area, POC, Initial Balance, Clean HUD & Non-Cluttering Density"
 #property indicator_chart_window
+#include <XAUUSD_Suite\VN_Lang.mqh>
 #property indicator_buffers 3
 #property indicator_plots   0
 
@@ -162,7 +163,7 @@ void UpdateHUD(double curPrice)
       if(ObjectFind(0, lblName) < 0)
       {
          ObjectCreate(0, lblName, OBJ_LABEL, 0, 0, 0);
-         ObjectSetString(0, lblName, OBJPROP_FONT, (k == 0) ? "Segoe UI Bold" : "Segoe UI Semibold");
+         ObjectSetString(0, lblName, OBJPROP_FONT, (k == 0) ? "Segoe UI" : "Segoe UI");
          ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 8);
          ObjectSetInteger(0, lblName, OBJPROP_BACK, false);
       }
@@ -484,9 +485,10 @@ int OnCalculate(const int rates_total,
 
             string pocLbl = pocLineName + "_lbl";
             ObjectCreate(0, pocLbl, OBJ_TEXT, 0, tEnd, poc);
-            ObjectSetString(0, pocLbl, OBJPROP_TEXT, StringFormat("%s POC: %.2f", sessName, poc));
+            string sDisplayName = (sessName == "S1_Asian" ? VN_TPO_ASIA_NAME : (sessName == "S2_London" ? VN_TPO_LONDON_NAME : VN_TPO_NY_NAME));
+            ObjectSetString(0, pocLbl, OBJPROP_TEXT, StringFormat(VN_TPO_POC_FMT, sDisplayName, poc));
             ObjectSetInteger(0, pocLbl, OBJPROP_COLOR, clrMagenta);
-            ObjectSetString(0, pocLbl, OBJPROP_FONT, "Segoe UI Semibold");
+            ObjectSetString(0, pocLbl, OBJPROP_FONT, "Segoe UI");
             ObjectSetInteger(0, pocLbl, OBJPROP_FONTSIZE, 8);
          }
          else
@@ -510,7 +512,8 @@ int OnCalculate(const int rates_total,
 
                string vahLbl = vahLineName + "_lbl";
                ObjectCreate(0, vahLbl, OBJ_TEXT, 0, tEnd, vah);
-               ObjectSetString(0, vahLbl, OBJPROP_TEXT, StringFormat("%s VAH: %.2f", sessName, vah));
+               string sDisplayName = (sessName == "S1_Asian" ? VN_TPO_ASIA_NAME : (sessName == "S2_London" ? VN_TPO_LONDON_NAME : VN_TPO_NY_NAME));
+               ObjectSetString(0, vahLbl, OBJPROP_TEXT, StringFormat(VN_TPO_VAH_FMT, sDisplayName, vah));
                ObjectSetInteger(0, vahLbl, OBJPROP_COLOR, sessVAClr);
                ObjectSetString(0, vahLbl, OBJPROP_FONT, "Segoe UI");
                ObjectSetInteger(0, vahLbl, OBJPROP_FONTSIZE, 7);
@@ -540,7 +543,8 @@ int OnCalculate(const int rates_total,
 
                string valLbl = valLineName + "_lbl";
                ObjectCreate(0, valLbl, OBJ_TEXT, 0, tEnd, val);
-               ObjectSetString(0, valLbl, OBJPROP_TEXT, StringFormat("%s VAL: %.2f", sessName, val));
+               string sDisplayName = (sessName == "S1_Asian" ? VN_TPO_ASIA_NAME : (sessName == "S2_London" ? VN_TPO_LONDON_NAME : VN_TPO_NY_NAME));
+               ObjectSetString(0, valLbl, OBJPROP_TEXT, StringFormat(VN_TPO_VAL_FMT, sDisplayName, val));
                ObjectSetInteger(0, valLbl, OBJPROP_COLOR, sessVAClr);
                ObjectSetString(0, valLbl, OBJPROP_FONT, "Segoe UI");
                ObjectSetInteger(0, valLbl, OBJPROP_FONTSIZE, 7);
@@ -589,9 +593,9 @@ int OnCalculate(const int rates_total,
                if(ObjectFind(0, phName) < 0)
                {
                   ObjectCreate(0, phName, OBJ_TEXT, 0, tStart + (datetime)((tEnd - tStart) / 2), maxP);
-                  ObjectSetString(0, phName, OBJPROP_TEXT, "Poor Hi");
+                  ObjectSetString(0, phName, OBJPROP_TEXT, VN_TPO_POOR_HIGH);
                   ObjectSetInteger(0, phName, OBJPROP_COLOR, InpPoorHighColor);
-                  ObjectSetString(0, phName, OBJPROP_FONT, "Segoe UI Bold");
+                  ObjectSetString(0, phName, OBJPROP_FONT, "Segoe UI");
                   ObjectSetInteger(0, phName, OBJPROP_FONTSIZE, 7);
                   ObjectSetInteger(0, phName, OBJPROP_ANCHOR, ANCHOR_LOWER);
                }
@@ -601,9 +605,9 @@ int OnCalculate(const int rates_total,
                if(ObjectFind(0, plName) < 0)
                {
                   ObjectCreate(0, plName, OBJ_TEXT, 0, tStart + (datetime)((tEnd - tStart) / 2), minP);
-                  ObjectSetString(0, plName, OBJPROP_TEXT, "Poor Lo");
+                  ObjectSetString(0, plName, OBJPROP_TEXT, VN_TPO_POOR_LOW);
                   ObjectSetInteger(0, plName, OBJPROP_COLOR, InpPoorLowColor);
-                  ObjectSetString(0, plName, OBJPROP_FONT, "Segoe UI Bold");
+                  ObjectSetString(0, plName, OBJPROP_FONT, "Segoe UI");
                   ObjectSetInteger(0, plName, OBJPROP_FONTSIZE, 7);
                   ObjectSetInteger(0, plName, OBJPROP_ANCHOR, ANCHOR_UPPER);
                }

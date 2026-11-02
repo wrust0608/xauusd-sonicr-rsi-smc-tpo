@@ -1,4 +1,4 @@
-//+------------------------------------------------------------------+
+﻿//+------------------------------------------------------------------+
 //|                                         RSI_Trend_Pulse_Pane.mq5 |
 //|                                  Copyright 2026, Antigravity AI |
 //|                       XAUUSD Quantitative Visualizer - Unleashed |
@@ -8,6 +8,7 @@
 #property version     "2.55"
 #property description "XAUUSD MTF RSI Trend Pulse Suite: RSI 14, EMA 9, WMA 45, Clean Pane HUD, Divergence Lines & MTF Zones"
 #property indicator_separate_window
+#include <XAUUSD_Suite\VN_Lang.mqh>
 #property indicator_buffers 7
 #property indicator_plots   7
 
@@ -135,12 +136,12 @@ int OnInit()
       PlotIndexSetDouble(i, PLOT_EMPTY_VALUE, EMPTY_VALUE);
    }
 
-   // Configure Level Texts and Colors
-   IndicatorSetString(INDICATOR_LEVELTEXT, 0, "Oversold [30]");
-   IndicatorSetString(INDICATOR_LEVELTEXT, 1, "Bull Support [40]");
-   IndicatorSetString(INDICATOR_LEVELTEXT, 2, "Equilibrium [50]");
-   IndicatorSetString(INDICATOR_LEVELTEXT, 3, "Bear Resist [60]");
-   IndicatorSetString(INDICATOR_LEVELTEXT, 4, "Overbought [70]");
+      // Configure Level Texts and Colors
+   IndicatorSetString(INDICATOR_LEVELTEXT, 0, VN_RSI_LEVEL_30);
+   IndicatorSetString(INDICATOR_LEVELTEXT, 1, VN_RSI_LEVEL_40);
+   IndicatorSetString(INDICATOR_LEVELTEXT, 2, VN_RSI_LEVEL_50);
+   IndicatorSetString(INDICATOR_LEVELTEXT, 3, VN_RSI_LEVEL_60);
+   IndicatorSetString(INDICATOR_LEVELTEXT, 4, VN_RSI_LEVEL_70);
 
    IndicatorSetInteger(INDICATOR_LEVELCOLOR, 0, clrDarkSlateGray);
    IndicatorSetInteger(INDICATOR_LEVELCOLOR, 1, C'46,139,87');  // SeaGreen for Bull Support 40
@@ -278,7 +279,7 @@ void RenderPaneHUD(bool b4_up, bool b4_dn, double sp4, double sl4,
 
    int bgX = 110;
    int bgY = 8;
-   int bgW = 275;
+   int bgW = 295;
    int bgH = 68;
 
    string bgName = prefix + "Pane_BG";
@@ -296,13 +297,13 @@ void RenderPaneHUD(bool b4_up, bool b4_dn, double sp4, double sl4,
    ObjectSetInteger(0, bgName, OBJPROP_XSIZE, bgW);
    ObjectSetInteger(0, bgName, OBJPROP_YSIZE, bgH);
 
-   string cardwellStr = (r15 >= 40.0 && r15 <= 80.0 && b1_up) ? "BULL CORRIDOR (40-80)" : ((r15 >= 20.0 && r15 <= 60.0 && b1_dn) ? "BEAR CORRIDOR (20-60)" : "RANGE / TRANSITION");
+      string cardwellStr = (r15 >= 40.0 && r15 <= 80.0 && b1_up) ? VN_CARDWELL_BULL : ((r15 >= 20.0 && r15 <= 60.0 && b1_dn) ? VN_CARDWELL_BEAR : VN_CARDWELL_RANGE);
 
    string lines[4];
-   lines[0] = StringFormat("H4: %s (Sp:%.1f) | H1: %s (Sp:%.1f)", b4_up ? "BULL" : (b4_dn ? "BEAR" : "CHOP"), sp4, b1_up ? "BULL" : (b1_dn ? "BEAR" : "CHOP"), sp1);
-   lines[1] = StringFormat("M15: %s [RSI: %.1f | WMA: %.1f]", m15_up ? "WAIT BUY (40-50)" : (m15_dn ? "WAIT SELL (50-60)" : "OUTSIDE"), r15, w15);
-   lines[2] = StringFormat("Cardwell: %s", cardwellStr);
-   lines[3] = StringFormat("M5 State: LatchUp=%s | LatchDn=%s", latch_up ? "ON" : "OFF", latch_dn ? "ON" : "OFF");
+   lines[0] = StringFormat(VN_RSI_HUD_H4H1, b4_up ? VN_TREND_BULL_STRONG : (b4_dn ? VN_TREND_BEAR_STRONG : VN_TREND_SIDEWAYS), sp4, b1_up ? VN_TREND_BULL_STRONG : (b1_dn ? VN_TREND_BEAR_STRONG : VN_TREND_SIDEWAYS), sp1);
+   lines[1] = StringFormat(VN_RSI_HUD_M15, m15_up ? VN_RSI_WAIT_BUY : (m15_dn ? VN_RSI_WAIT_SELL : VN_RSI_OUTSIDE), r15, w15);
+   lines[2] = StringFormat(VN_RSI_HUD_CARDWELL, cardwellStr);
+   lines[3] = StringFormat(VN_RSI_HUD_LATCH, latch_up ? VN_STATE_ON : VN_STATE_OFF, latch_dn ? VN_STATE_ON : VN_STATE_OFF);
 
    int startY = bgY + 4;
    for(int i = 0; i < 4; i++)
@@ -311,7 +312,7 @@ void RenderPaneHUD(bool b4_up, bool b4_dn, double sp4, double sl4,
       if(ObjectFind(0, lblName) < 0)
       {
          ObjectCreate(0, lblName, OBJ_LABEL, subwindow, 0, 0);
-         ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI Semibold");
+         ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI");
          ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 8);
          ObjectSetInteger(0, lblName, OBJPROP_BACK, false);
       }
@@ -322,7 +323,7 @@ void RenderPaneHUD(bool b4_up, bool b4_dn, double sp4, double sl4,
       color clr = InpHUDColor;
       if(i == 0) clr = (b4_up && b1_up) ? clrSpringGreen : ((b4_dn && b1_dn) ? clrTomato : clrYellow);
       if(i == 1) clr = (m15_up || m15_dn) ? clrGold : clrLightSlateGray;
-      if(i == 2) clr = (StringFind(cardwellStr, "BULL") >= 0) ? clrSpringGreen : ((StringFind(cardwellStr, "BEAR") >= 0) ? clrTomato : clrSilver);
+      if(i == 2) clr = (StringFind(cardwellStr, "TĂNG") >= 0 || StringFind(cardwellStr, "BULL") >= 0) ? clrSpringGreen : ((StringFind(cardwellStr, "GIẢM") >= 0 || StringFind(cardwellStr, "BEAR") >= 0) ? clrTomato : clrSilver);
       if(i == 3) clr = (latch_up || latch_dn) ? clrCyan : clrDimGray;
       ObjectSetString(0, lblName, OBJPROP_TEXT, lines[i]);
       ObjectSetInteger(0, lblName, OBJPROP_COLOR, clr);
@@ -492,7 +493,7 @@ int OnCalculate(const int rates_total,
       if(kl1_r > 0 && kl2_r > 0)
       {
          string divName = StringFormat("Div_Bull_%s", TimeToString(time[kl2_r]));
-         string typeShort = isRegBull ? "Reg Bull Div" : (isHidBull ? "Hid Bull Div" : "RSI DB");
+         string typeShort = isRegBull ? VN_DIV_REG_BULL : (isHidBull ? VN_DIV_HID_BULL : VN_DIV_DB);
          DrawDivLine(divName, time[kl1_r], BufferRsi[kl1_r], time[kl2_r], BufferRsi[kl2_r], clrSpringGreen, typeShort);
       }
 
@@ -517,7 +518,7 @@ int OnCalculate(const int rates_total,
       if(kh1_r > 0 && kh2_r > 0)
       {
          string divName = StringFormat("Div_Bear_%s", TimeToString(time[kh2_r]));
-         string typeShort = isRegBear ? "Reg Bear Div" : (isHidBear ? "Hid Bear Div" : "RSI DT");
+         string typeShort = isRegBear ? VN_DIV_REG_BEAR : (isHidBear ? VN_DIV_HID_BEAR : VN_DIV_DT);
          DrawDivLine(divName, time[kh1_r], BufferRsi[kh1_r], time[kh2_r], BufferRsi[kh2_r], clrRed, typeShort);
       }
 
