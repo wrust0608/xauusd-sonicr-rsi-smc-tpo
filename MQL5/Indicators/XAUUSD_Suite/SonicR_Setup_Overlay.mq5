@@ -86,7 +86,7 @@ input double   InpMinCandleRangePts   = 1.50;          // Min Candle Range in Po
 input bool     InpRequireKeyZone      = true;          // Require Touch of Dragon EMA 34 / 89 / 200 / Round
 input color    InpBullWickColor       = clrSpringGreen;// Bullish Wick Rejection Color
 input color    InpBearWickColor       = clrTomato;     // Bearish Wick Rejection Color
-input bool     InpShowWickTags        = true;          // Show Text Tag at Wick Tip
+input bool     InpShowWickTags        = false;         // Show Text Tag at Wick Tip (false = clean arrows only)
 
 input group "=== 5. Visual Dashboard & HUD ==="
 input bool     InpShowHUD        = true;        // Show On-Chart Information HUD
@@ -414,6 +414,7 @@ int OnCalculate(const int rates_total,
 
    // 2. Main Loop for M5 Indicators and Execution
    string waveStr = "SEARCHING WAVE";
+   if(!InpShowWickTags) ObjectsDeleteAll(0, prefix + "Wick_");
 
    for(int i = limit; i >= 0; i--)
    {

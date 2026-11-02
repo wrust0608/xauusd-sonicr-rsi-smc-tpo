@@ -122,3 +122,4 @@ for sl_min, sl_max, label in [(0.80, 1.80, "SL Rất Nhỏ ($0.80 - $1.80)"),
     print(f"{label:<32} | {tot:<8} lệnh | {wins} Thắng ({win_rate:5.1f}%) | PF: {pf:5.2f} | Net: {net_r:+6.1f}R")
 
 print("=" * 80)
+
