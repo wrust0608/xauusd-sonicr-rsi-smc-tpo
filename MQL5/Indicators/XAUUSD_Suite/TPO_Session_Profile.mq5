@@ -1,4 +1,4 @@
-﻿//+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
 //|                                         TPO_Session_Profile.mq5 |
 //|                                  Copyright 2026, Antigravity AI |
 //|                       XAUUSD Quantitative Visualizer - Unleashed |

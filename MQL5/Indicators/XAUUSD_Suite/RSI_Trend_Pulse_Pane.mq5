@@ -1,4 +1,4 @@
-﻿//+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
 //|                                         RSI_Trend_Pulse_Pane.mq5 |
 //|                                  Copyright 2026, Antigravity AI |
 //|                       XAUUSD Quantitative Visualizer - Unleashed |

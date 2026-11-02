@@ -1,4 +1,4 @@
-﻿//+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
 //|                                         SonicR_Setup_Overlay.mq5 |
 //|                                  Copyright 2026, Antigravity AI |
 //|                       XAUUSD Quantitative Visualizer - Unleashed |
@@ -80,14 +80,27 @@ input bool     InpFilterStructure   = true;        // Filter: Align with Market 
 input double   InpAtrSlMultiplier   = 1.5;         // Dynamic SL ATR Multiplier (1.5x ATR)
 input double   InpAtrTpMultiplier   = 3.0;         // Dynamic TP ATR Multiplier (3.0x ATR = 1:2 RR)
 
-input group "=== 4. Price Action Wick Rejection (Bắt Râu) Settings ==="
-input bool     InpEnableWickRejection = true;          // Enable Wick Rejection Signals (Bắt Râu)
-input double   InpMinWickRatio        = 0.35;          // Min Wick Ratio (35% of Candle Range)
-input double   InpMinCandleRangePts   = 1.50;          // Min Candle Range in Points ($1.50 on Gold)
-input bool     InpRequireKeyZone      = true;          // Require Touch of Dragon EMA 34 / 89 / 200 / Round
-input color    InpBullWickColor       = clrSpringGreen;// Rút râu Mua Color
-input color    InpBearWickColor       = clrTomato;     // Rút râu Bán Color
-input bool     InpShowWickTags        = false;         // Show Text Tag at Wick Tip (false = clean arrows only)
+enum ENUM_WICK_FILTER_MODE
+{
+   WICK_FILTER_TREND_STRICT = 0, // Thuận xu hướng Sonic R (Giảm chỉ bắt Sell, Tăng chỉ bắt Buy - Sạch nhất)
+   WICK_FILTER_TREND_OR_KEY = 1, // Thuận xu hướng HOẶC chạm cản cứng vĩ mô (EMA 89/200) (Khuyên dùng)
+   WICK_FILTER_ALL          = 2  // Tất cả vùng cản (Không lọc xu hướng - Rủi ro nhiễu cao)
+};
+
+input group "=== 4. Price Action Wick Rejection (Bắt Râu Đẳng Cấp Sniper) ==="
+input bool                   InpEnableWickRejection = true;                     // Bật tín hiệu Bắt Râu phản ứng giá (Wick Rejection)
+input ENUM_WICK_FILTER_MODE  InpWickFilterMode      = WICK_FILTER_TREND_OR_KEY; // Bộ lọc xu hướng (Khuyên dùng: Thuận xu hướng & cản cứng)
+input double                 InpMinWickRatio        = 0.45;                     // Tỷ lệ râu tối thiểu (Khuyên dùng: 45% - 50% nến)
+input double                 InpMinWickPts          = 1.00;                     // Chiều dài râu tối thiểu ($1.00 = 10 pips Gold)
+input double                 InpMaxBodyRatio        = 0.35;                     // Thân nến tối đa (35% nến - đảm bảo nến Pinbar chuẩn)
+input double                 InpMaxOppositeWick     = 0.20;                     // Râu đối diện tối đa (20% nến - chống nến Doji giằng co)
+input int                    InpWickCooldownBars    = 4;                        // Giãn cách tối thiểu giữa 2 mũi tên cùng chiều (Nến)
+input double                 InpMinCandleRangePts   = 1.50;                     // Biên độ nến tối thiểu ($1.50 Gold)
+input bool                   InpRequireKeyZone      = true;                     // Bắt buộc chạm cản EMA 34 / 89 / 200
+input bool                   InpCloseRejectionCheck = true;                     // Xác nhận từ chối (Đóng cửa dưới cản khi Sell, trên cản khi Buy)
+input color                  InpBullWickColor       = clrSpringGreen;           // Màu mũi tên Rút râu Mua
+input color                  InpBearWickColor       = clrTomato;                // Màu mũi tên Rút râu Bán
+input bool                   InpShowWickTags        = false;                    // Hiển thị chữ tại râu (false = chỉ hiện mũi tên sạch)
 
 enum ENUM_HUD_POSITION
 {
@@ -466,7 +479,7 @@ int OnCalculate(const int rates_total,
       BufferSignalBuy[i]  = EMPTY_VALUE;
       BufferSignalSell[i] = EMPTY_VALUE;
 
-      // 2b. Price Action Wick Rejection (Bắt Râu tại Cản)
+      // 2b. Price Action Wick Rejection (Bắt Râu Đẳng Cấp Sniper - 5-Stage Precision Filters)
       if(InpEnableWickRejection && i < maxAvailable - 1)
       {
          double cRange = high[i] - low[i];
@@ -476,135 +489,208 @@ int OnCalculate(const int rates_total,
             double lWick = MathMin(open[i], close[i]) - low[i];
             double uRatio = uWick / cRange;
             double lRatio = lWick / cRange;
-
             double body = MathAbs(close[i] - open[i]);
+            double bodyRatio = body / cRange;
 
-            // Rút râu Bán (Rút râu trên tại cản)
-            if(uRatio >= InpMinWickRatio && uWick >= 1.2 * body && (close[i] < open[i] || (close[i] - low[i]) / cRange <= 0.40))
+            // Trend analysis at bar i
+            bool isSonicBullM5 = (dc[i] > e89[i]);
+            bool isSonicBearM5 = (dc[i] < e89[i]);
+            bool isDragonChop = (MathAbs(dc[i] - e89[i]) < 0.60 * atr[i]);
+
+            // --- 1. RÚT RÂU BÁN (Bearish Sniper Rejection) ---
+            bool isBearWickForm = (uRatio >= InpMinWickRatio) &&
+                                  (uWick >= InpMinWickPts) &&
+                                  (uWick >= 2.0 * body) &&
+                                  (bodyRatio <= InpMaxBodyRatio) &&
+                                  (lRatio <= InpMaxOppositeWick) &&
+                                  ((close[i] - low[i]) / cRange <= 0.35);
+
+            if(isBearWickForm)
             {
-               // Anti-cluster: Skip if previous bar already fired and current bar didn't make a higher wick
-               if(BufferSignalSell[i + 1] != EMPTY_VALUE && high[i] <= high[i + 1])
-               {
-                  // Skip repetitive signal in chop
-               }
-               else
-               {
-               double tol = MathMax(1.0, 0.40 * atr[i]);
                string zName = "";
-               if(high[i] >= e89[i] - tol && close[i] <= e89[i] + tol)
-                  zName = VN_ZONE_EMA89;
-               else if(high[i] >= e200[i] - tol && close[i] <= e200[i] + tol)
+               if(high[i] >= e200[i] - 0.20 && (!InpCloseRejectionCheck || close[i] <= e200[i] + 0.15))
                   zName = VN_ZONE_EMA200;
-               else if(high[i] >= dh[i] - tol && close[i] <= dh[i] + tol)
+               else if(high[i] >= e89[i] - 0.20 && (!InpCloseRejectionCheck || close[i] <= e89[i] + 0.15))
+                  zName = VN_ZONE_EMA89;
+               else if(high[i] >= dh[i] - 0.20 && (!InpCloseRejectionCheck || close[i] <= dh[i] + 0.15))
                   zName = VN_ZONE_DRAGON_HIGH;
-               else if(high[i] >= dc[i] - tol && close[i] <= dc[i] + tol)
+               else if(high[i] >= dc[i] - 0.20 && (!InpCloseRejectionCheck || close[i] <= dc[i] + 0.15))
                   zName = VN_ZONE_DRAGON_AXIS;
-               else if(high[i] >= dl[i] - tol && close[i] <= dl[i] + tol)
+               else if(high[i] >= dl[i] - 0.20 && (!InpCloseRejectionCheck || close[i] <= dl[i] + 0.15))
                   zName = VN_ZONE_DRAGON_LOW;
                else if(!InpRequireKeyZone)
                   zName = VN_ZONE_UPPER_WICK;
 
-                  if(zName != "")
+               if(zName != "")
+               {
+                  // Gatekeeper 1: Trend Filter
+                  bool allowSell = true;
+                  if(InpWickFilterMode == WICK_FILTER_TREND_STRICT)
                   {
-                     BufferSignalSell[i] = high[i] + (0.25 * atr[i]);
+                     allowSell = isSonicBearM5 && !isDragonChop;
+                  }
+                  else if(InpWickFilterMode == WICK_FILTER_TREND_OR_KEY)
+                  {
+                     allowSell = (isSonicBearM5 && !isDragonChop) ||
+                                 (zName == VN_ZONE_EMA200) ||
+                                 (zName == VN_ZONE_EMA89 && dc[i] <= e89[i] + 0.50);
+                     // If strong bull dragon, ban dragon rejections unless EMA 200
+                     if(isSonicBullM5 && !isDragonChop && zName != VN_ZONE_EMA200) allowSell = false;
+                  }
 
-                     if(i <= 35 && InpShowWickTags)
+                  if(allowSell)
+                  {
+                     // Gatekeeper 2: Anti-Cluster Cooldown Filter
+                     bool cooldownOk = true;
+                     double maxRecentHigh = 0.0;
+                     for(int k = 1; k <= InpWickCooldownBars && (i + k) < maxAvailable; k++)
                      {
-                        string lblName = prefix + "Wick_Bear_" + TimeToString(time[i]);
-                        if(ObjectFind(0, lblName) < 0)
+                        if(BufferSignalSell[i + k] != EMPTY_VALUE)
                         {
-                           ObjectCreate(0, lblName, OBJ_TEXT, 0, time[i], high[i] + (0.35 * _Point * 10));
-                           ObjectSetString(0, lblName, OBJPROP_TEXT, StringFormat("⮟ %s (%.0f%%)", zName, uRatio * 100.0));
-                           ObjectSetInteger(0, lblName, OBJPROP_COLOR, InpBearWickColor);
-                           ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI");
-                           ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 7);
-                           ObjectSetInteger(0, lblName, OBJPROP_ANCHOR, ANCHOR_LOWER);
-                           ObjectSetInteger(0, lblName, OBJPROP_BACK, true);
+                           if(high[i + k] > maxRecentHigh) maxRecentHigh = high[i + k];
                         }
                      }
-
-                     if(i == 1)
+                     if(maxRecentHigh > 0.0 && high[i] < maxRecentHigh + (0.40 * _Point * 10))
                      {
-                        g_lastWickRejStatus = StringFormat("⮟ %s (%.0f%%)", zName, uRatio * 100.0);
-                        double rk = (high[1] + 0.30) - close[1];
-                        g_lastWickSL = high[1] + 0.30;
-                        g_lastWickTP = close[1] - (2.0 * rk);
+                        cooldownOk = false;
+                     }
 
-                        if(time[1] != lastWickAlertTime)
+                     if(cooldownOk)
+                     {
+                        BufferSignalSell[i] = high[i] + (0.25 * atr[i]);
+
+                        if(i <= 35 && InpShowWickTags)
                         {
-                           lastWickAlertTime = time[1];
-                           string msg = StringFormat(VN_ALERT_BEAR_REJ,
-                                                     _Symbol, uRatio * 100.0, zName, close[1], g_lastWickSL, rk, g_lastWickTP, 2.0 * rk);
-                           if(!MQLInfoInteger(MQL_TESTER) && InpEnablePopup) Alert(msg);
-                           if(InpEnableSound) PlaySound("alert.wav");
-                           if(InpEnablePush)  SendNotification(msg);
-                           if(InpEnableEmail) SendMail("Bắt Râu Rejection Alert", msg);
+                           string lblName = prefix + "Wick_Bear_" + TimeToString(time[i]);
+                           if(ObjectFind(0, lblName) < 0)
+                           {
+                              ObjectCreate(0, lblName, OBJ_TEXT, 0, time[i], high[i] + (0.35 * _Point * 10));
+                              ObjectSetString(0, lblName, OBJPROP_TEXT, StringFormat("⮟ %s (%.0f%%)", zName, uRatio * 100.0));
+                              ObjectSetInteger(0, lblName, OBJPROP_COLOR, InpBearWickColor);
+                              ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI");
+                              ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 7);
+                              ObjectSetInteger(0, lblName, OBJPROP_ANCHOR, ANCHOR_LOWER);
+                              ObjectSetInteger(0, lblName, OBJPROP_BACK, true);
+                           }
+                        }
+
+                        if(i == 1)
+                        {
+                           g_lastWickRejStatus = StringFormat(VN_RADAR_BEAR_REJ, zName);
+                           double rk = (high[1] + 0.30) - close[1];
+                           g_lastWickSL = high[1] + 0.30;
+                           g_lastWickTP = close[1] - (2.0 * rk);
+
+                           if(time[1] != lastWickAlertTime)
+                           {
+                              lastWickAlertTime = time[1];
+                              string msg = StringFormat(VN_ALERT_BEAR_REJ,
+                                                        _Symbol, uRatio * 100.0, zName, close[1], g_lastWickSL, rk, g_lastWickTP, 2.0 * rk);
+                              if(!MQLInfoInteger(MQL_TESTER) && InpEnablePopup) Alert(msg);
+                              if(InpEnableSound) PlaySound("alert.wav");
+                              if(InpEnablePush)  SendNotification(msg);
+                              if(InpEnableEmail) SendMail("Bắt Râu Rejection Alert", msg);
+                           }
                         }
                      }
                   }
                }
             }
 
-            // Rút râu Mua (Rút râu dưới tại cản)
-            if(lRatio >= InpMinWickRatio && lWick >= 1.2 * body && (close[i] > open[i] || (high[i] - close[i]) / cRange <= 0.40))
+            // --- 2. RÚT RÂU MUA (Bullish Sniper Rejection) ---
+            bool isBullWickForm = (lRatio >= InpMinWickRatio) &&
+                                  (lWick >= InpMinWickPts) &&
+                                  (lWick >= 2.0 * body) &&
+                                  (bodyRatio <= InpMaxBodyRatio) &&
+                                  (uRatio <= InpMaxOppositeWick) &&
+                                  ((high[i] - close[i]) / cRange <= 0.35);
+
+            if(isBullWickForm)
             {
-               // Anti-cluster: Skip if previous bar already fired and current bar didn't make a lower wick
-               if(BufferSignalBuy[i + 1] != EMPTY_VALUE && low[i] >= low[i + 1])
-               {
-                  // Skip repetitive signal in chop
-               }
-               else
-               {
-               double tol = MathMax(1.0, 0.40 * atr[i]);
                string zName = "";
-               if(low[i] <= e89[i] + tol && close[i] >= e89[i] - tol)
-                  zName = VN_ZONE_EMA89;
-               else if(low[i] <= e200[i] + tol && close[i] >= e200[i] - tol)
+               if(low[i] <= e200[i] + 0.20 && (!InpCloseRejectionCheck || close[i] >= e200[i] - 0.15))
                   zName = VN_ZONE_EMA200;
-               else if(low[i] <= dl[i] + tol && close[i] >= dl[i] - tol)
+               else if(low[i] <= e89[i] + 0.20 && (!InpCloseRejectionCheck || close[i] >= e89[i] - 0.15))
+                  zName = VN_ZONE_EMA89;
+               else if(low[i] <= dl[i] + 0.20 && (!InpCloseRejectionCheck || close[i] >= dl[i] - 0.15))
                   zName = VN_ZONE_DRAGON_LOW;
-               else if(low[i] <= dc[i] + tol && close[i] >= dc[i] - tol)
+               else if(low[i] <= dc[i] + 0.20 && (!InpCloseRejectionCheck || close[i] >= dc[i] - 0.15))
                   zName = VN_ZONE_DRAGON_AXIS;
-               else if(low[i] <= dh[i] + tol && close[i] >= dh[i] - tol)
+               else if(low[i] <= dh[i] + 0.20 && (!InpCloseRejectionCheck || close[i] >= dh[i] - 0.15))
                   zName = VN_ZONE_DRAGON_HIGH;
                else if(!InpRequireKeyZone)
                   zName = VN_ZONE_LOWER_WICK;
 
-                  if(zName != "")
+               if(zName != "")
+               {
+                  // Gatekeeper 1: Trend Filter
+                  bool allowBuy = true;
+                  if(InpWickFilterMode == WICK_FILTER_TREND_STRICT)
                   {
-                     BufferSignalBuy[i] = low[i] - (0.25 * atr[i]);
+                     allowBuy = isSonicBullM5 && !isDragonChop;
+                  }
+                  else if(InpWickFilterMode == WICK_FILTER_TREND_OR_KEY)
+                  {
+                     allowBuy = (isSonicBullM5 && !isDragonChop) ||
+                                (zName == VN_ZONE_EMA200) ||
+                                (zName == VN_ZONE_EMA89 && dc[i] >= e89[i] - 0.50);
+                     // If strong bear dragon, ban dragon rejections unless EMA 200
+                     if(isSonicBearM5 && !isDragonChop && zName != VN_ZONE_EMA200) allowBuy = false;
+                  }
 
-                     if(i <= 35 && InpShowWickTags)
+                  if(allowBuy)
+                  {
+                     // Gatekeeper 2: Anti-Cluster Cooldown Filter
+                     bool cooldownOk = true;
+                     double minRecentLow = 999999.0;
+                     for(int k = 1; k <= InpWickCooldownBars && (i + k) < maxAvailable; k++)
                      {
-                        string lblName = prefix + "Wick_Bull_" + TimeToString(time[i]);
-                        if(ObjectFind(0, lblName) < 0)
+                        if(BufferSignalBuy[i + k] != EMPTY_VALUE)
                         {
-                           ObjectCreate(0, lblName, OBJ_TEXT, 0, time[i], low[i] - (0.35 * _Point * 10));
-                           ObjectSetString(0, lblName, OBJPROP_TEXT, StringFormat("⮝ %s (%.0f%%)", zName, lRatio * 100.0));
-                           ObjectSetInteger(0, lblName, OBJPROP_COLOR, InpBullWickColor);
-                           ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI");
-                           ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 7);
-                           ObjectSetInteger(0, lblName, OBJPROP_ANCHOR, ANCHOR_UPPER);
-                           ObjectSetInteger(0, lblName, OBJPROP_BACK, true);
+                           if(low[i + k] < minRecentLow) minRecentLow = low[i + k];
                         }
                      }
-
-                     if(i == 1)
+                     if(minRecentLow < 999999.0 && low[i] > minRecentLow - (0.40 * _Point * 10))
                      {
-                        g_lastWickRejStatus = StringFormat("⮝ %s (%.0f%%)", zName, lRatio * 100.0);
-                        double rk = close[1] - (low[1] - 0.30);
-                        g_lastWickSL = low[1] - 0.30;
-                        g_lastWickTP = close[1] + (2.0 * rk);
+                        cooldownOk = false;
+                     }
 
-                        if(time[1] != lastWickAlertTime)
+                     if(cooldownOk)
+                     {
+                        BufferSignalBuy[i] = low[i] - (0.25 * atr[i]);
+
+                        if(i <= 35 && InpShowWickTags)
                         {
-                           lastWickAlertTime = time[1];
-                           string msg = StringFormat(VN_ALERT_BULL_REJ,
-                                                     _Symbol, lRatio * 100.0, zName, close[1], g_lastWickSL, rk, g_lastWickTP, 2.0 * rk);
-                           if(!MQLInfoInteger(MQL_TESTER) && InpEnablePopup) Alert(msg);
-                           if(InpEnableSound) PlaySound("alert.wav");
-                           if(InpEnablePush)  SendNotification(msg);
-                           if(InpEnableEmail) SendMail("Bắt Râu Rejection Alert", msg);
+                           string lblName = prefix + "Wick_Bull_" + TimeToString(time[i]);
+                           if(ObjectFind(0, lblName) < 0)
+                           {
+                              ObjectCreate(0, lblName, OBJ_TEXT, 0, time[i], low[i] - (0.35 * _Point * 10));
+                              ObjectSetString(0, lblName, OBJPROP_TEXT, StringFormat("⮝ %s (%.0f%%)", zName, lRatio * 100.0));
+                              ObjectSetInteger(0, lblName, OBJPROP_COLOR, InpBullWickColor);
+                              ObjectSetString(0, lblName, OBJPROP_FONT, "Segoe UI");
+                              ObjectSetInteger(0, lblName, OBJPROP_FONTSIZE, 7);
+                              ObjectSetInteger(0, lblName, OBJPROP_ANCHOR, ANCHOR_UPPER);
+                              ObjectSetInteger(0, lblName, OBJPROP_BACK, true);
+                           }
+                        }
+
+                        if(i == 1)
+                        {
+                           g_lastWickRejStatus = StringFormat(VN_RADAR_BULL_REJ, zName);
+                           double rk = close[1] - (low[1] - 0.30);
+                           g_lastWickSL = low[1] - 0.30;
+                           g_lastWickTP = close[1] + (2.0 * rk);
+
+                           if(time[1] != lastWickAlertTime)
+                           {
+                              lastWickAlertTime = time[1];
+                              string msg = StringFormat(VN_ALERT_BULL_REJ,
+                                                        _Symbol, lRatio * 100.0, zName, close[1], g_lastWickSL, rk, g_lastWickTP, 2.0 * rk);
+                              if(!MQLInfoInteger(MQL_TESTER) && InpEnablePopup) Alert(msg);
+                              if(InpEnableSound) PlaySound("alert.wav");
+                              if(InpEnablePush)  SendNotification(msg);
+                              if(InpEnableEmail) SendMail("Bắt Râu Rejection Alert", msg);
+                           }
                         }
                      }
                   }

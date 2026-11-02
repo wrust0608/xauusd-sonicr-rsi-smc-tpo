@@ -29,7 +29,7 @@ void OnStart()
    ChartSetInteger(chartId, CHART_SHOW_ONE_CLICK, false);
    ChartSetInteger(chartId, CHART_AUTOSCROLL, true);
    ChartSetInteger(chartId, CHART_SHIFT, true);
-   ChartSetDouble(chartId, CHART_SHIFT_SIZE, 15.0);
+   ChartSetDouble(chartId, CHART_SHIFT_SIZE, 20.0);
 
    // 2. TradingView Dark Aesthetic Palette
    ChartSetInteger(chartId, CHART_COLOR_BACKGROUND, C'19,23,34');     // TradingView Obsidian Dark #131722
