@@ -90,11 +90,11 @@ enum ENUM_WICK_FILTER_MODE
 input group "=== 4. Price Action Wick Rejection (Bắt Râu Đẳng Cấp Sniper) ==="
 input bool                   InpEnableWickRejection = true;                     // Bật tín hiệu Bắt Râu phản ứng giá (Wick Rejection)
 input ENUM_WICK_FILTER_MODE  InpWickFilterMode      = WICK_FILTER_TREND_OR_KEY; // Bộ lọc xu hướng (Khuyên dùng: Thuận xu hướng & cản cứng)
-input double                 InpMinWickRatio        = 0.45;                     // Tỷ lệ râu tối thiểu (Khuyên dùng: 45% - 50% nến)
+input double                 InpMinWickRatio        = 0.40;                     // Tỷ lệ râu tối thiểu (Khuyên dùng: 40% - 50% nến)
 input double                 InpMinWickPts          = 1.00;                     // Chiều dài râu tối thiểu ($1.00 = 10 pips Gold)
-input double                 InpMaxBodyRatio        = 0.35;                     // Thân nến tối đa (35% nến - đảm bảo nến Pinbar chuẩn)
-input double                 InpMaxOppositeWick     = 0.20;                     // Râu đối diện tối đa (20% nến - chống nến Doji giằng co)
-input int                    InpWickCooldownBars    = 4;                        // Giãn cách tối thiểu giữa 2 mũi tên cùng chiều (Nến)
+input double                 InpMaxBodyRatio        = 0.38;                     // Thân nến tối đa (38% nến - chuẩn nến Pinbar/Rejection)
+input double                 InpMaxOppositeWick     = 0.25;                     // Râu đối diện tối đa (25% nến - chống nến Doji giằng co)
+input int                    InpWickCooldownBars    = 3;                        // Giãn cách tối thiểu giữa 2 mũi tên cùng chiều (Nến)
 input double                 InpMinCandleRangePts   = 1.50;                     // Biên độ nến tối thiểu ($1.50 Gold)
 input bool                   InpRequireKeyZone      = true;                     // Bắt buộc chạm cản EMA 34 / 89 / 200
 input bool                   InpCloseRejectionCheck = true;                     // Xác nhận từ chối (Đóng cửa dưới cản khi Sell, trên cản khi Buy)
@@ -498,25 +498,26 @@ int OnCalculate(const int rates_total,
             bool isDragonChop = (MathAbs(dc[i] - e89[i]) < 0.60 * atr[i]);
 
             // --- 1. RÚT RÂU BÁN (Bearish Sniper Rejection) ---
+            bool oppWickBearOk = (lRatio <= InpMaxOppositeWick) || (lWick <= 0.70) || (uRatio >= 0.50 && lRatio <= 0.28);
             bool isBearWickForm = (uRatio >= InpMinWickRatio) &&
                                   (uWick >= InpMinWickPts) &&
-                                  (uWick >= 2.0 * body) &&
+                                  (uWick >= 1.8 * body) &&
                                   (bodyRatio <= InpMaxBodyRatio) &&
-                                  (lRatio <= InpMaxOppositeWick) &&
-                                  ((close[i] - low[i]) / cRange <= 0.35);
+                                  oppWickBearOk &&
+                                  ((close[i] - low[i]) / cRange <= 0.38);
 
             if(isBearWickForm)
             {
                string zName = "";
-               if(high[i] >= e200[i] - 0.20 && (!InpCloseRejectionCheck || close[i] <= e200[i] + 0.15))
+               if(high[i] >= e200[i] - 0.20 && (!InpCloseRejectionCheck || close[i] <= e200[i] + 0.25))
                   zName = VN_ZONE_EMA200;
-               else if(high[i] >= e89[i] - 0.20 && (!InpCloseRejectionCheck || close[i] <= e89[i] + 0.15))
+               else if(high[i] >= e89[i] - 0.20 && (!InpCloseRejectionCheck || close[i] <= e89[i] + 0.25))
                   zName = VN_ZONE_EMA89;
-               else if(high[i] >= dh[i] - 0.20 && (!InpCloseRejectionCheck || close[i] <= dh[i] + 0.15))
+               else if(high[i] >= dh[i] - 0.20 && (!InpCloseRejectionCheck || close[i] <= dh[i] + 0.25))
                   zName = VN_ZONE_DRAGON_HIGH;
-               else if(high[i] >= dc[i] - 0.20 && (!InpCloseRejectionCheck || close[i] <= dc[i] + 0.15))
+               else if(high[i] >= dc[i] - 0.20 && (!InpCloseRejectionCheck || close[i] <= dc[i] + 0.25))
                   zName = VN_ZONE_DRAGON_AXIS;
-               else if(high[i] >= dl[i] - 0.20 && (!InpCloseRejectionCheck || close[i] <= dl[i] + 0.15))
+               else if(high[i] >= dl[i] - 0.20 && (!InpCloseRejectionCheck || close[i] <= dl[i] + 0.25))
                   zName = VN_ZONE_DRAGON_LOW;
                else if(!InpRequireKeyZone)
                   zName = VN_ZONE_UPPER_WICK;
@@ -598,25 +599,26 @@ int OnCalculate(const int rates_total,
             }
 
             // --- 2. RÚT RÂU MUA (Bullish Sniper Rejection) ---
+            bool oppWickBullOk = (uRatio <= InpMaxOppositeWick) || (uWick <= 0.70) || (lRatio >= 0.50 && uRatio <= 0.28);
             bool isBullWickForm = (lRatio >= InpMinWickRatio) &&
                                   (lWick >= InpMinWickPts) &&
-                                  (lWick >= 2.0 * body) &&
+                                  (lWick >= 1.8 * body) &&
                                   (bodyRatio <= InpMaxBodyRatio) &&
-                                  (uRatio <= InpMaxOppositeWick) &&
-                                  ((high[i] - close[i]) / cRange <= 0.35);
+                                  oppWickBullOk &&
+                                  ((high[i] - close[i]) / cRange <= 0.38);
 
             if(isBullWickForm)
             {
                string zName = "";
-               if(low[i] <= e200[i] + 0.20 && (!InpCloseRejectionCheck || close[i] >= e200[i] - 0.15))
+               if(low[i] <= e200[i] + 0.20 && (!InpCloseRejectionCheck || close[i] >= e200[i] - 0.25))
                   zName = VN_ZONE_EMA200;
-               else if(low[i] <= e89[i] + 0.20 && (!InpCloseRejectionCheck || close[i] >= e89[i] - 0.15))
+               else if(low[i] <= e89[i] + 0.20 && (!InpCloseRejectionCheck || close[i] >= e89[i] - 0.25))
                   zName = VN_ZONE_EMA89;
-               else if(low[i] <= dl[i] + 0.20 && (!InpCloseRejectionCheck || close[i] >= dl[i] - 0.15))
+               else if(low[i] <= dl[i] + 0.20 && (!InpCloseRejectionCheck || close[i] >= dl[i] - 0.25))
                   zName = VN_ZONE_DRAGON_LOW;
-               else if(low[i] <= dc[i] + 0.20 && (!InpCloseRejectionCheck || close[i] >= dc[i] - 0.15))
+               else if(low[i] <= dc[i] + 0.20 && (!InpCloseRejectionCheck || close[i] >= dc[i] - 0.25))
                   zName = VN_ZONE_DRAGON_AXIS;
-               else if(low[i] <= dh[i] + 0.20 && (!InpCloseRejectionCheck || close[i] >= dh[i] - 0.15))
+               else if(low[i] <= dh[i] + 0.20 && (!InpCloseRejectionCheck || close[i] >= dh[i] - 0.25))
                   zName = VN_ZONE_DRAGON_HIGH;
                else if(!InpRequireKeyZone)
                   zName = VN_ZONE_LOWER_WICK;
